@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.beans.factory.support;
 
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.lang.Nullable;
 
 /**
  * GenericBeanDefinition is a one-stop shop for standard bean definition purposes.
@@ -45,10 +46,7 @@ public class GenericBeanDefinition extends AbstractBeanDefinition {
 	 * Create a new GenericBeanDefinition, to be configured through its bean
 	 * properties and configuration methods.
 	 * @see #setBeanClass
-	 * @see #setBeanClassName
 	 * @see #setScope
-	 * @see #setAutowireMode
-	 * @see #setDependencyCheck
 	 * @see #setConstructorArgumentValues
 	 * @see #setPropertyValues
 	 */
@@ -67,7 +65,7 @@ public class GenericBeanDefinition extends AbstractBeanDefinition {
 
 
 	@Override
-	public void setParentName(String parentName) {
+	public void setParentName(@Nullable String parentName) {
 		this.parentName = parentName;
 	}
 

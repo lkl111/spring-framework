@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -83,6 +84,7 @@ public class InjectionPoint {
 	 * <p>Note: Either MethodParameter or Field is available.
 	 * @return the MethodParameter, or {@code null} if none
 	 */
+	@Nullable
 	public MethodParameter getMethodParameter() {
 		return this.methodParameter;
 	}
@@ -92,6 +94,7 @@ public class InjectionPoint {
 	 * <p>Note: Either MethodParameter or Field is available.
 	 * @return the Field, or {@code null} if none
 	 */
+	@Nullable
 	public Field getField() {
 		return this.field;
 	}
@@ -109,6 +112,18 @@ public class InjectionPoint {
 		else {
 			return this.methodParameter.getParameterAnnotations();
 		}
+	}
+
+	/**
+	 * Retrieve a field/parameter annotation of the given type, if any.
+	 * @param annotationType the annotation type to retrieve
+	 * @return the annotation instance, or {@code null} if none found
+	 * @since 4.3.9
+	 */
+	@Nullable
+	public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
+		return (this.field != null ? this.field.getAnnotation(annotationType) :
+				this.methodParameter.getParameterAnnotation(annotationType));
 	}
 
 	/**

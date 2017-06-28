@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
 import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.lang.Nullable;
 import org.springframework.ui.context.ThemeSource;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
@@ -264,6 +265,10 @@ public class DispatcherServlet extends FrameworkServlet {
 	 */
 	private static final String DEFAULT_STRATEGIES_PATH = "DispatcherServlet.properties";
 
+	/**
+	 * Common prefix that DispatcherServlet's default strategy attributes start with.
+	 */
+	private static final String DEFAULT_STRATEGIES_PREFIX = "org.springframework.web.servlet";
 
 	/** Additional logger to use when no mapped handler is found for a request. */
 	protected static final Log pageNotFoundLogger = LogFactory.getLog(PAGE_NOT_FOUND_LOG_CATEGORY);
@@ -279,7 +284,7 @@ public class DispatcherServlet extends FrameworkServlet {
 			defaultStrategies = PropertiesLoaderUtils.loadProperties(resource);
 		}
 		catch (IOException ex) {
-			throw new IllegalStateException("Could not load 'DispatcherServlet.properties': " + ex.getMessage());
+			throw new IllegalStateException("Could not load '" + DEFAULT_STRATEGIES_PATH + "': " + ex.getMessage());
 		}
 	}
 
@@ -763,6 +768,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @return the ThemeSource, if any
 	 * @see #getWebApplicationContext()
 	 */
+	@Nullable
 	public final ThemeSource getThemeSource() {
 		if (getWebApplicationContext() instanceof ThemeSource) {
 			return (ThemeSource) getWebApplicationContext();
@@ -777,6 +783,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @return the MultipartResolver used by this servlet, or {@code null} if none
 	 * (indicating that no multipart support is available)
 	 */
+	@Nullable
 	public final MultipartResolver getMultipartResolver() {
 		return this.multipartResolver;
 	}
@@ -874,7 +881,7 @@ public class DispatcherServlet extends FrameworkServlet {
 			Enumeration<?> attrNames = request.getAttributeNames();
 			while (attrNames.hasMoreElements()) {
 				String attrName = (String) attrNames.nextElement();
-				if (this.cleanupAfterInclude || attrName.startsWith("org.springframework.web.servlet")) {
+				if (this.cleanupAfterInclude || attrName.startsWith(DEFAULT_STRATEGIES_PREFIX)) {
 					attributesSnapshot.put(attrName, request.getAttribute(attrName));
 				}
 			}
@@ -1005,9 +1012,12 @@ public class DispatcherServlet extends FrameworkServlet {
 	/**
 	 * Do we need view name translation?
 	 */
-	private void applyDefaultViewName(HttpServletRequest request, ModelAndView mv) throws Exception {
+	private void applyDefaultViewName(HttpServletRequest request, @Nullable ModelAndView mv) throws Exception {
 		if (mv != null && !mv.hasView()) {
-			mv.setViewName(getDefaultViewName(request));
+			String defaultViewName = getDefaultViewName(request);
+			if (defaultViewName != null) {
+				mv.setViewName(defaultViewName);
+			}
 		}
 	}
 
@@ -1016,7 +1026,8 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * either a ModelAndView or an Exception to be resolved to a ModelAndView.
 	 */
 	private void processDispatchResult(HttpServletRequest request, HttpServletResponse response,
-			HandlerExecutionChain mappedHandler, ModelAndView mv, Exception exception) throws Exception {
+			@Nullable HandlerExecutionChain mappedHandler, @Nullable ModelAndView mv,
+			@Nullable Exception exception) throws Exception {
 
 		boolean errorView = false;
 
@@ -1069,12 +1080,7 @@ public class DispatcherServlet extends FrameworkServlet {
 			return ((LocaleContextResolver) this.localeResolver).resolveLocaleContext(request);
 		}
 		else {
-			return new LocaleContext() {
-				@Override
-				public Locale getLocale() {
-					return localeResolver.resolveLocale(request);
-				}
-			};
+			return () -> localeResolver.resolveLocale(request);
 		}
 	}
 
@@ -1091,16 +1097,41 @@ public class DispatcherServlet extends FrameworkServlet {
 				logger.debug("Request is already a MultipartHttpServletRequest - if not in a forward, " +
 						"this typically results from an additional MultipartFilter in web.xml");
 			}
-			else if (request.getAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE) instanceof MultipartException) {
+			else if (hasMultipartException(request) ) {
 				logger.debug("Multipart resolution failed for current request before - " +
 						"skipping re-resolution for undisturbed error rendering");
 			}
 			else {
-				return this.multipartResolver.resolveMultipart(request);
+				try {
+					return this.multipartResolver.resolveMultipart(request);
+				}
+				catch (MultipartException ex) {
+					if (request.getAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE) != null) {
+						logger.debug("Multipart resolution failed for error dispatch", ex);
+						// Keep processing error dispatch with regular request handle below
+					}
+					else {
+						throw ex;
+					}
+				}
 			}
 		}
 		// If not returned before: return original request.
 		return request;
+	}
+
+	/**
+	 * Check "javax.servlet.error.exception" attribute for a multipart exception.
+	 */
+	private boolean hasMultipartException(HttpServletRequest request) {
+		Throwable error = (Throwable) request.getAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE);
+		while (error != null) {
+			if (error instanceof MultipartException) {
+				return true;
+			}
+			error = error.getCause();
+		}
+		return false;
 	}
 
 	/**
@@ -1122,6 +1153,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @param request current HTTP request
 	 * @return the HandlerExecutionChain, or {@code null} if no handler could be found
 	 */
+	@Nullable
 	protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
 		for (HandlerMapping hm : this.handlerMappings) {
 			if (logger.isTraceEnabled()) {
@@ -1184,8 +1216,9 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @return a corresponding ModelAndView to forward to
 	 * @throws Exception if no error ModelAndView found
 	 */
+	@Nullable
 	protected ModelAndView processHandlerException(HttpServletRequest request, HttpServletResponse response,
-			Object handler, Exception ex) throws Exception {
+			@Nullable Object handler, Exception ex) throws Exception {
 
 		// Check registered HandlerExceptionResolvers...
 		ModelAndView exMv = null;
@@ -1202,7 +1235,10 @@ public class DispatcherServlet extends FrameworkServlet {
 			}
 			// We might still need view name translation for a plain error model...
 			if (!exMv.hasView()) {
-				exMv.setViewName(getDefaultViewName(request));
+				String defaultViewName = getDefaultViewName(request);
+				if (defaultViewName != null) {
+					exMv.setViewName(defaultViewName);
+				}
 			}
 			if (logger.isDebugEnabled()) {
 				logger.debug("Handler execution resulted in exception - forwarding to resolved error view: " + exMv, ex);
@@ -1229,9 +1265,10 @@ public class DispatcherServlet extends FrameworkServlet {
 		response.setLocale(locale);
 
 		View view;
-		if (mv.isReference()) {
+		String viewName = mv.getViewName();
+		if (viewName != null) {
 			// We need to resolve the view name.
-			view = resolveViewName(mv.getViewName(), mv.getModelInternal(), locale, request);
+			view = resolveViewName(viewName, mv.getModelInternal(), locale, request);
 			if (view == null) {
 				throw new ServletException("Could not resolve view with name '" + mv.getViewName() +
 						"' in servlet with name '" + getServletName() + "'");
@@ -1271,6 +1308,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * @return the view name (or {@code null} if no default found)
 	 * @throws Exception if view name translation failed
 	 */
+	@Nullable
 	protected String getDefaultViewName(HttpServletRequest request) throws Exception {
 		return this.viewNameTranslator.getViewName(request);
 	}
@@ -1289,8 +1327,9 @@ public class DispatcherServlet extends FrameworkServlet {
 	 * (typically in case of problems creating an actual View object)
 	 * @see ViewResolver#resolveViewName
 	 */
-	protected View resolveViewName(String viewName, Map<String, Object> model, Locale locale,
-			HttpServletRequest request) throws Exception {
+	@Nullable
+	protected View resolveViewName(String viewName, @Nullable Map<String, Object> model,
+			Locale locale, HttpServletRequest request) throws Exception {
 
 		for (ViewResolver viewResolver : this.viewResolvers) {
 			View view = viewResolver.resolveViewName(viewName, locale);
@@ -1302,7 +1341,7 @@ public class DispatcherServlet extends FrameworkServlet {
 	}
 
 	private void triggerAfterCompletion(HttpServletRequest request, HttpServletResponse response,
-			HandlerExecutionChain mappedHandler, Exception ex) throws Exception {
+			@Nullable HandlerExecutionChain mappedHandler, Exception ex) throws Exception {
 
 		if (mappedHandler != null) {
 			mappedHandler.triggerAfterCompletion(request, response, ex);
@@ -1323,7 +1362,7 @@ public class DispatcherServlet extends FrameworkServlet {
 		Enumeration<?> attrNames = request.getAttributeNames();
 		while (attrNames.hasMoreElements()) {
 			String attrName = (String) attrNames.nextElement();
-			if (this.cleanupAfterInclude || attrName.startsWith("org.springframework.web.servlet")) {
+			if (this.cleanupAfterInclude || attrName.startsWith(DEFAULT_STRATEGIES_PREFIX)) {
 				attrsToCheck.add(attrName);
 			}
 		}

@@ -16,11 +16,16 @@
 
 package org.springframework.http.server.reactive;
 
-import java.util.function.Function;
+import java.net.URISyntaxException;
+import java.util.function.BiFunction;
 
+import io.netty.handler.codec.http.HttpResponseStatus;
 import reactor.core.publisher.Mono;
-import reactor.ipc.netty.http.HttpChannel;
+import reactor.ipc.netty.http.server.HttpServerRequest;
+import reactor.ipc.netty.http.server.HttpServerResponse;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.util.Assert;
 
@@ -30,23 +35,44 @@ import org.springframework.util.Assert;
  * @author Stephane Maldini
  * @since 5.0
  */
-public class ReactorHttpHandlerAdapter implements Function<HttpChannel, Mono<Void>> {
+public class ReactorHttpHandlerAdapter
+		implements BiFunction<HttpServerRequest, HttpServerResponse, Mono<Void>> {
+
+	private static final Log logger = LogFactory.getLog(ReactorHttpHandlerAdapter.class);
+
 
 	private final HttpHandler httpHandler;
 
 
 	public ReactorHttpHandlerAdapter(HttpHandler httpHandler) {
-		Assert.notNull(httpHandler, "'httpHandler' is required.");
+		Assert.notNull(httpHandler, "HttpHandler must not be null");
 		this.httpHandler = httpHandler;
 	}
 
 
 	@Override
-	public Mono<Void> apply(HttpChannel channel) {
-		NettyDataBufferFactory bufferFactory = new NettyDataBufferFactory(channel.delegate().alloc());
-		ReactorServerHttpRequest adaptedRequest = new ReactorServerHttpRequest(channel, bufferFactory);
-		ReactorServerHttpResponse adaptedResponse = new ReactorServerHttpResponse(channel, bufferFactory);
-		return this.httpHandler.handle(adaptedRequest, adaptedResponse);
+	public Mono<Void> apply(HttpServerRequest request, HttpServerResponse response) {
+
+		NettyDataBufferFactory bufferFactory = new NettyDataBufferFactory(response.alloc());
+		ReactorServerHttpRequest adaptedRequest;
+		ReactorServerHttpResponse adaptedResponse;
+		try {
+			adaptedRequest = new ReactorServerHttpRequest(request, bufferFactory);
+			adaptedResponse = new ReactorServerHttpResponse(response, bufferFactory);
+		}
+		catch (URISyntaxException ex) {
+			logger.error("Invalid URL " + ex.getMessage(), ex);
+			response.status(HttpResponseStatus.BAD_REQUEST);
+			return Mono.empty();
+		}
+
+		return this.httpHandler.handle(adaptedRequest, adaptedResponse)
+				.onErrorResume(ex -> {
+					logger.error("Could not complete request", ex);
+					response.status(HttpResponseStatus.INTERNAL_SERVER_ERROR);
+					return Mono.empty();
+				})
+				.doOnSuccess(aVoid -> logger.debug("Successfully completed request"));
 	}
 
 }

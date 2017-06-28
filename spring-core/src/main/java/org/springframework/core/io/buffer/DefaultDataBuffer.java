@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.core.io.buffer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Function;
@@ -28,15 +29,21 @@ import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
 /**
- * Default implementation of the {@link DataBuffer} interface that uses a {@link
- * ByteBuffer} internally, with separate read and write positions. Constructed
- * using the {@link DefaultDataBufferFactory}.
+ * Default implementation of the {@link DataBuffer} interface that uses a
+ * {@link ByteBuffer} internally, with separate read and write positions.
+ * Constructed using the {@link DefaultDataBufferFactory}.
  *
  * @author Arjen Poutsma
+ * @author Juergen Hoeller
  * @since 5.0
  * @see DefaultDataBufferFactory
  */
 public class DefaultDataBuffer implements DataBuffer {
+
+	private static final int MAX_CAPACITY = Integer.MAX_VALUE;
+
+	private static final int CAPACITY_THRESHOLD = 1024 * 1024 * 4;
+
 
 	private final DefaultDataBufferFactory dataBufferFactory;
 
@@ -149,7 +156,8 @@ public class DefaultDataBuffer implements DataBuffer {
 	 * applying the given function on {@link #byteBuffer}.
 	 */
 	private <T> T readInternal(Function<ByteBuffer, T> function) {
-		this.byteBuffer.position(this.readPosition);
+		// Explicit cast for compatibility with covariant return type on JDK 9's ByteBuffer
+		((Buffer) this.byteBuffer).position(this.readPosition);
 		try {
 			return function.apply(this.byteBuffer);
 		}
@@ -207,7 +215,8 @@ public class DefaultDataBuffer implements DataBuffer {
 	 * after applying the given function on {@link #byteBuffer}.
 	 */
 	private <T> T writeInternal(Function<ByteBuffer, T> function) {
-		this.byteBuffer.position(this.writePosition);
+		// Explicit cast for compatibility with covariant return type on JDK 9's ByteBuffer
+		((Buffer) this.byteBuffer).position(this.writePosition);
 		try {
 			return function.apply(this.byteBuffer);
 		}
@@ -219,23 +228,29 @@ public class DefaultDataBuffer implements DataBuffer {
 	@Override
 	public DataBuffer slice(int index, int length) {
 		int oldPosition = this.byteBuffer.position();
+		// Explicit access via Buffer base type for compatibility
+		// with covariant return type on JDK 9's ByteBuffer...
+		Buffer buffer = this.byteBuffer;
 		try {
-			this.byteBuffer.position(index);
+			buffer.position(index);
 			ByteBuffer slice = this.byteBuffer.slice();
-			slice.limit(length);
+			// Explicit cast for compatibility with covariant return type on JDK 9's ByteBuffer
+			((Buffer) slice).limit(length);
 			return new SlicedDefaultDataBuffer(slice, 0, length, this.dataBufferFactory);
 		}
 		finally {
-			this.byteBuffer.position(oldPosition);
+			buffer.position(oldPosition);
 		}
-
 	}
 
 	@Override
 	public ByteBuffer asByteBuffer() {
 		ByteBuffer duplicate = this.byteBuffer.duplicate();
-		duplicate.position(this.readPosition);
-		duplicate.limit(this.writePosition);
+		// Explicit access via Buffer base type for compatibility
+		// with covariant return type on JDK 9's ByteBuffer...
+		Buffer buffer = duplicate;
+		buffer.position(this.readPosition);
+		buffer.limit(this.writePosition);
 		return duplicate;
 	}
 
@@ -250,23 +265,56 @@ public class DefaultDataBuffer implements DataBuffer {
 	}
 
 	private void ensureExtraCapacity(int extraCapacity) {
-		int neededCapacity = this.writePosition + extraCapacity;
+		int neededCapacity = calculateCapacity(this.writePosition + extraCapacity);
 		if (neededCapacity > this.byteBuffer.capacity()) {
 			grow(neededCapacity);
 		}
 	}
 
-	void grow(int minCapacity) {
+	/**
+	 * @see io.netty.buffer.AbstractByteBufAllocator#calculateNewCapacity(int, int)
+	 */
+	private int calculateCapacity(int neededCapacity) {
+		Assert.isTrue(neededCapacity >= 0, "'neededCapacity' must >= 0");
+
+		if (neededCapacity == CAPACITY_THRESHOLD) {
+			return CAPACITY_THRESHOLD;
+		}
+		else if (neededCapacity > CAPACITY_THRESHOLD) {
+			int newCapacity = neededCapacity / CAPACITY_THRESHOLD * CAPACITY_THRESHOLD;
+			if (newCapacity > MAX_CAPACITY - CAPACITY_THRESHOLD) {
+				newCapacity = MAX_CAPACITY;
+			}
+			else {
+				newCapacity += CAPACITY_THRESHOLD;
+			}
+			return newCapacity;
+		}
+		else {
+			int newCapacity = 64;
+			while (newCapacity < neededCapacity) {
+				newCapacity <<= 1;
+			}
+			return Math.min(newCapacity, MAX_CAPACITY);
+		}
+	}
+
+	void grow(int capacity) {
 		ByteBuffer oldBuffer = this.byteBuffer;
 		ByteBuffer newBuffer =
-				(oldBuffer.isDirect() ? ByteBuffer.allocateDirect(minCapacity) :
-						ByteBuffer.allocate(minCapacity));
+				(oldBuffer.isDirect() ? ByteBuffer.allocateDirect(capacity) :
+						ByteBuffer.allocate(capacity));
 
-		oldBuffer.position(this.readPosition);
+		final int remaining = readableByteCount();
+		// Explicit cast for compatibility with covariant return type on JDK 9's ByteBuffer
+		((Buffer) oldBuffer).position(this.readPosition).limit(this.writePosition);
 		newBuffer.put(oldBuffer);
 
 		this.byteBuffer = newBuffer;
-		oldBuffer.clear();
+		this.readPosition = 0;
+		this.writePosition = remaining;
+		// Explicit cast for compatibility with covariant return type on JDK 9's ByteBuffer
+		((Buffer) oldBuffer).clear();
 	}
 
 
@@ -349,7 +397,7 @@ public class DefaultDataBuffer implements DataBuffer {
 		}
 
 		@Override
-		void grow(int minCapacity) {
+		void grow(int capacity) {
 			throw new UnsupportedOperationException(
 					"Growing the capacity of a sliced buffer is not supported");
 		}

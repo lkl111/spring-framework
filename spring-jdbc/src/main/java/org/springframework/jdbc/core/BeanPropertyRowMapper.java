@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.dao.DataRetrievalFailureException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.support.JdbcUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
@@ -88,7 +89,7 @@ public class BeanPropertyRowMapper<T> implements RowMapper<T> {
 	private boolean primitivesDefaultedForNullValue = false;
 
 	/** ConversionService for binding JDBC values to bean properties */
-	private ConversionService conversionService = new DefaultConversionService();
+	private ConversionService conversionService = DefaultConversionService.getSharedInstance();
 
 	/** Map of the fields we provide mapping for */
 	private Map<String, PropertyDescriptor> mappedFields;
@@ -192,7 +193,7 @@ public class BeanPropertyRowMapper<T> implements RowMapper<T> {
 	 * @since 4.3
 	 * @see #initBeanWrapper(BeanWrapper)
 	 */
-	public void setConversionService(ConversionService conversionService) {
+	public void setConversionService(@Nullable ConversionService conversionService) {
 		this.conversionService = conversionService;
 	}
 
@@ -201,6 +202,7 @@ public class BeanPropertyRowMapper<T> implements RowMapper<T> {
 	 * or {@code null} if none.
 	 * @since 4.3
 	 */
+	@Nullable
 	public ConversionService getConversionService() {
 		return this.conversionService;
 	}
@@ -291,7 +293,7 @@ public class BeanPropertyRowMapper<T> implements RowMapper<T> {
 					Object value = getColumnValue(rs, index, pd);
 					if (rowNumber == 0 && logger.isDebugEnabled()) {
 						logger.debug("Mapping column '" + column + "' to property '" + pd.getName() +
-								"' of type [" + ClassUtils.getQualifiedName(pd.getPropertyType()) + "]");
+								"' of type '" + ClassUtils.getQualifiedName(pd.getPropertyType()) + "'");
 					}
 					try {
 						bw.setPropertyValue(pd.getName(), value);
@@ -301,9 +303,9 @@ public class BeanPropertyRowMapper<T> implements RowMapper<T> {
 							if (logger.isDebugEnabled()) {
 								logger.debug("Intercepted TypeMismatchException for row " + rowNumber +
 										" and column '" + column + "' with null value when setting property '" +
-										pd.getName() + "' of type [" +
+										pd.getName() + "' of type '" +
 										ClassUtils.getQualifiedName(pd.getPropertyType()) +
-										"] on object: " + mappedObject, ex);
+										"' on object: " + mappedObject, ex);
 							}
 						}
 						else {
@@ -361,11 +363,11 @@ public class BeanPropertyRowMapper<T> implements RowMapper<T> {
 	 * @param rs is the ResultSet holding the data
 	 * @param index is the column index
 	 * @param pd the bean property that each result object is expected to match
-	 * (or {@code null} if none specified)
 	 * @return the Object value
 	 * @throws SQLException in case of extraction failure
 	 * @see org.springframework.jdbc.support.JdbcUtils#getResultSetValue(java.sql.ResultSet, int, Class)
 	 */
+	@Nullable
 	protected Object getColumnValue(ResultSet rs, int index, PropertyDescriptor pd) throws SQLException {
 		return JdbcUtils.getResultSetValue(rs, index, pd.getPropertyType());
 	}

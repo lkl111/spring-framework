@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,12 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.ConfigurableConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.PropertyPlaceholderHelper;
 import org.springframework.util.SystemPropertyUtils;
 
@@ -38,7 +42,7 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 
 	protected final Log logger = LogFactory.getLog(getClass());
 
-	protected ConfigurableConversionService conversionService = new DefaultConversionService();
+	private volatile ConfigurableConversionService conversionService;
 
 	private PropertyPlaceholderHelper nonStrictHelper;
 
@@ -57,11 +61,21 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 
 	@Override
 	public ConfigurableConversionService getConversionService() {
-		return this.conversionService;
+		// Need to provide an independent DefaultConversionService, not the
+		// shared DefaultConversionService used by PropertySourcesPropertyResolver.
+		if (this.conversionService == null) {
+			synchronized (this) {
+				if (this.conversionService == null) {
+					this.conversionService = new DefaultConversionService();
+				}
+			}
+		}
+		return conversionService;
 	}
 
 	@Override
 	public void setConversionService(ConfigurableConversionService conversionService) {
+		Assert.notNull(conversionService, "ConversionService must not be null");
 		this.conversionService = conversionService;
 	}
 
@@ -72,6 +86,7 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	 */
 	@Override
 	public void setPlaceholderPrefix(String placeholderPrefix) {
+		Assert.notNull(placeholderPrefix, "'placeholderPrefix' must not be null");
 		this.placeholderPrefix = placeholderPrefix;
 	}
 
@@ -82,6 +97,7 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	 */
 	@Override
 	public void setPlaceholderSuffix(String placeholderSuffix) {
+		Assert.notNull(placeholderSuffix, "'placeholderSuffix' must not be null");
 		this.placeholderSuffix = placeholderSuffix;
 	}
 
@@ -93,7 +109,7 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	 * @see org.springframework.util.SystemPropertyUtils#VALUE_SEPARATOR
 	 */
 	@Override
-	public void setValueSeparator(String valueSeparator) {
+	public void setValueSeparator(@Nullable String valueSeparator) {
 		this.valueSeparator = valueSeparator;
 	}
 
@@ -210,12 +226,33 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	}
 
 	private String doResolvePlaceholders(String text, PropertyPlaceholderHelper helper) {
-		return helper.replacePlaceholders(text, new PropertyPlaceholderHelper.PlaceholderResolver() {
-			@Override
-			public String resolvePlaceholder(String placeholderName) {
-				return getPropertyAsRawString(placeholderName);
+		return helper.replacePlaceholders(text, placeholderName -> getPropertyAsRawString(placeholderName));
+	}
+
+	/**
+	 * Convert the given value to the specified target type, if necessary.
+	 * @param value the original property value
+	 * @param targetType the specified target type for property retrieval
+	 * @return the converted value, or the original value if no conversion
+	 * is necessary
+	 * @since 4.3.5
+	 */
+	@SuppressWarnings("unchecked")
+	@Nullable
+	protected <T> T convertValueIfNecessary(Object value, @Nullable Class<T> targetType) {
+		if (targetType == null) {
+			return (T) value;
+		}
+		ConversionService conversionServiceToUse = this.conversionService;
+		if (conversionServiceToUse == null) {
+			// Avoid initialization of shared DefaultConversionService if
+			// no standard type conversion is needed in the first place...
+			if (ClassUtils.isAssignableValue(targetType, value)) {
+				return (T) value;
 			}
-		});
+			conversionServiceToUse = DefaultConversionService.getSharedInstance();
+		}
+		return conversionServiceToUse.convert(value, targetType);
 	}
 
 
@@ -225,6 +262,7 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
 	 * @param key the property name to resolve
 	 * @return the property value or {@code null} if none found
 	 */
+	@Nullable
 	protected abstract String getPropertyAsRawString(String key);
 
 }

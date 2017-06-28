@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.metadata.CallMetaDataContext;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
@@ -114,6 +115,7 @@ public abstract class AbstractJdbcCall {
 	/**
 	 * Get the name of the stored procedure.
 	 */
+	@Nullable
 	public String getProcedureName() {
 		return this.callMetaDataContext.getProcedureName();
 	}
@@ -142,6 +144,7 @@ public abstract class AbstractJdbcCall {
 	/**
 	 * Get the catalog name used.
 	 */
+	@Nullable
 	public String getCatalogName() {
 		return this.callMetaDataContext.getCatalogName();
 	}
@@ -156,6 +159,7 @@ public abstract class AbstractJdbcCall {
 	/**
 	 * Get the schema name used.
 	 */
+	@Nullable
 	public String getSchemaName() {
 		return this.callMetaDataContext.getSchemaName();
 	}
@@ -300,7 +304,9 @@ public abstract class AbstractJdbcCall {
 	 * Invoked after this base class's compilation is complete.
 	 */
 	protected void compileInternal() {
-		this.callMetaDataContext.initializeMetaData(getJdbcTemplate().getDataSource());
+		DataSource dataSource = getJdbcTemplate().getDataSource();
+		Assert.state(dataSource != null, "No DataSource set");
+		this.callMetaDataContext.initializeMetaData(dataSource);
 
 		// Iterate over the declared RowMappers and register the corresponding SqlParameter
 		for (Map.Entry<String, RowMapper<?>> entry : this.declaredRowMappers.entrySet()) {
@@ -317,7 +323,6 @@ public abstract class AbstractJdbcCall {
 
 		this.callableStatementFactory =
 				new CallableStatementCreatorFactory(getCallString(), this.callMetaDataContext.getCallParameters());
-		this.callableStatementFactory.setNativeJdbcExtractor(getJdbcTemplate().getNativeJdbcExtractor());
 
 		onCompileInternal();
 	}
@@ -410,6 +415,7 @@ public abstract class AbstractJdbcCall {
 	 * Get the name of a single out parameter or return value.
 	 * Used for functions or procedures with one out parameter.
 	 */
+	@Nullable
 	protected String getScalarOutParameterName() {
 		return this.callMetaDataContext.getScalarOutParameterName();
 	}

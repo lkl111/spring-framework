@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@ package org.springframework.jdbc.object;
 
 import java.util.List;
 import java.util.Map;
+
 import javax.sql.DataSource;
 
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.CallableStatementCreatorFactory;
 import org.springframework.jdbc.core.ParameterMapper;
 import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.lang.Nullable;
 
 /**
  * RdbmsOperation using a JdbcTemplate and representing a SQL-based
@@ -157,7 +159,6 @@ public abstract class SqlCall extends RdbmsOperation {
 		this.callableStatementFactory = new CallableStatementCreatorFactory(getCallString(), getDeclaredParameters());
 		this.callableStatementFactory.setResultSetType(getResultSetType());
 		this.callableStatementFactory.setUpdatableResults(isUpdatableResults());
-		this.callableStatementFactory.setNativeJdbcExtractor(getJdbcTemplate().getNativeJdbcExtractor());
 
 		onCompileInternal();
 	}
@@ -181,7 +182,7 @@ public abstract class SqlCall extends RdbmsOperation {
 	 * with this parameters.
 	 * @param inParams parameters. May be {@code null}.
 	 */
-	protected CallableStatementCreator newCallableStatementCreator(Map<String, ?> inParams) {
+	protected CallableStatementCreator newCallableStatementCreator(@Nullable Map<String, ?> inParams) {
 		return this.callableStatementFactory.newCallableStatementCreator(inParams);
 	}
 

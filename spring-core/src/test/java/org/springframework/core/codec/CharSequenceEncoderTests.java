@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 
 package org.springframework.core.codec;
 
+import java.util.Collections;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import reactor.core.publisher.Flux;
-import reactor.test.TestSubscriber;
+import reactor.test.StepVerifier;
 
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
@@ -41,40 +43,46 @@ public class CharSequenceEncoderTests extends AbstractDataBufferAllocatingTestCa
 
 	@Before
 	public void createEncoder() {
-		this.encoder = new CharSequenceEncoder();
+		this.encoder = CharSequenceEncoder.textPlainOnly();
 	}
 
 	@Test
 	public void canWrite() {
-		assertTrue(this.encoder.canEncode(ResolvableType.forClass(String.class), MimeTypeUtils.TEXT_PLAIN));
-		assertTrue(this.encoder.canEncode(ResolvableType.forClass(StringBuilder.class), MimeTypeUtils.TEXT_PLAIN));
-		assertTrue(this.encoder.canEncode(ResolvableType.forClass(StringBuffer.class), MimeTypeUtils.TEXT_PLAIN));
-		assertFalse(this.encoder.canEncode(ResolvableType.forClass(Integer.class), MimeTypeUtils.TEXT_PLAIN));
-		assertFalse(this.encoder.canEncode(ResolvableType.forClass(String.class), MimeTypeUtils.APPLICATION_JSON));
+		assertTrue(this.encoder.canEncode(ResolvableType.forClass(String.class),
+				MimeTypeUtils.TEXT_PLAIN));
+		assertTrue(this.encoder.canEncode(ResolvableType.forClass(StringBuilder.class),
+				MimeTypeUtils.TEXT_PLAIN));
+		assertTrue(this.encoder.canEncode(ResolvableType.forClass(StringBuffer.class),
+				MimeTypeUtils.TEXT_PLAIN));
+		assertFalse(this.encoder.canEncode(ResolvableType.forClass(Integer.class),
+				MimeTypeUtils.TEXT_PLAIN));
+		assertFalse(this.encoder.canEncode(ResolvableType.forClass(String.class),
+				MimeTypeUtils.APPLICATION_JSON));
+
+		// SPR-15464
+		assertFalse(this.encoder.canEncode(ResolvableType.NONE, null));
 	}
 
 	@Test
-	public void writeString() throws InterruptedException {
+	public void writeString() {
 		Flux<String> stringFlux = Flux.just("foo");
 		Flux<DataBuffer> output = Flux.from(
-				this.encoder.encode(stringFlux, this.bufferFactory, null, null));
-		TestSubscriber
-				.subscribe(output)
-				.assertNoError()
-				.assertComplete()
-				.assertValuesWith(stringConsumer("foo"));
+				this.encoder.encode(stringFlux, this.bufferFactory, null, null, Collections.emptyMap()));
+		StepVerifier.create(output)
+				.consumeNextWith(stringConsumer("foo"))
+				.expectComplete()
+				.verify();
 	}
 
 	@Test
-	public void writeStringBuilder() throws InterruptedException {
+	public void writeStringBuilder() {
 		Flux<StringBuilder> stringBuilderFlux = Flux.just(new StringBuilder("foo"));
 		Flux<DataBuffer> output = Flux.from(
-				this.encoder.encode(stringBuilderFlux, this.bufferFactory, null, null));
-		TestSubscriber
-				.subscribe(output)
-				.assertNoError()
-				.assertComplete()
-				.assertValuesWith(stringConsumer("foo"));
+				this.encoder.encode(stringBuilderFlux, this.bufferFactory, null, null, Collections.emptyMap()));
+		StepVerifier.create(output)
+				.consumeNextWith(stringConsumer("foo"))
+				.expectComplete()
+				.verify();
 	}
 
 }

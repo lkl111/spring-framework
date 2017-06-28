@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import javax.xml.transform.Source;
 
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -37,6 +35,7 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.core.DefaultParameterNameDiscoverer;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.ParameterNameDiscoverer;
+import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.task.AsyncTaskExecutor;
@@ -46,6 +45,7 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
 import org.springframework.http.converter.xml.SourceHttpMessageConverter;
+import org.springframework.lang.Nullable;
 import org.springframework.ui.ModelMap;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
@@ -144,6 +144,8 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 
 	private DeferredResultProcessingInterceptor[] deferredResultInterceptors = new DeferredResultProcessingInterceptor[0];
 
+	private ReactiveAdapterRegistry reactiveRegistry = new ReactiveAdapterRegistry();
+
 	private boolean ignoreDefaultModelOnRedirect = false;
 
 	private int cacheSecondsForSessionAttributeHandlers = 0;
@@ -195,6 +197,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	/**
 	 * Return the custom argument resolvers, or {@code null}.
 	 */
+	@Nullable
 	public List<HandlerMethodArgumentResolver> getCustomArgumentResolvers() {
 		return this.customArgumentResolvers;
 	}
@@ -203,7 +206,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * Configure the complete list of supported argument types thus overriding
 	 * the resolvers that would otherwise be configured by default.
 	 */
-	public void setArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+	public void setArgumentResolvers(@Nullable List<HandlerMethodArgumentResolver> argumentResolvers) {
 		if (argumentResolvers == null) {
 			this.argumentResolvers = null;
 		}
@@ -217,14 +220,15 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * Return the configured argument resolvers, or possibly {@code null} if
 	 * not initialized yet via {@link #afterPropertiesSet()}.
 	 */
+	@Nullable
 	public List<HandlerMethodArgumentResolver> getArgumentResolvers() {
-		return (this.argumentResolvers != null) ? this.argumentResolvers.getResolvers() : null;
+		return (this.argumentResolvers != null ? this.argumentResolvers.getResolvers() : null);
 	}
 
 	/**
 	 * Configure the supported argument types in {@code @InitBinder} methods.
 	 */
-	public void setInitBinderArgumentResolvers(List<HandlerMethodArgumentResolver> argumentResolvers) {
+	public void setInitBinderArgumentResolvers(@Nullable List<HandlerMethodArgumentResolver> argumentResolvers) {
 		if (argumentResolvers == null) {
 			this.initBinderArgumentResolvers = null;
 		}
@@ -238,6 +242,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * Return the argument resolvers for {@code @InitBinder} methods, or possibly
 	 * {@code null} if not initialized yet via {@link #afterPropertiesSet()}.
 	 */
+	@Nullable
 	public List<HandlerMethodArgumentResolver> getInitBinderArgumentResolvers() {
 		return (this.initBinderArgumentResolvers != null) ? this.initBinderArgumentResolvers.getResolvers() : null;
 	}
@@ -254,6 +259,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	/**
 	 * Return the custom return value handlers, or {@code null}.
 	 */
+	@Nullable
 	public List<HandlerMethodReturnValueHandler> getCustomReturnValueHandlers() {
 		return this.customReturnValueHandlers;
 	}
@@ -262,7 +268,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * Configure the complete list of supported return value types thus
 	 * overriding handlers that would otherwise be configured by default.
 	 */
-	public void setReturnValueHandlers(List<HandlerMethodReturnValueHandler> returnValueHandlers) {
+	public void setReturnValueHandlers(@Nullable List<HandlerMethodReturnValueHandler> returnValueHandlers) {
 		if (returnValueHandlers == null) {
 			this.returnValueHandlers = null;
 		}
@@ -276,6 +282,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * Return the configured handlers, or possibly {@code null} if not
 	 * initialized yet via {@link #afterPropertiesSet()}.
 	 */
+	@Nullable
 	public List<HandlerMethodReturnValueHandler> getReturnValueHandlers() {
 		return this.returnValueHandlers.getHandlers();
 	}
@@ -301,6 +308,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	/**
 	 * Return the configured {@link ModelAndViewResolver}s, or {@code null}.
 	 */
+	@Nullable
 	public List<ModelAndViewResolver> getModelAndViewResolvers() {
 		return modelAndViewResolvers;
 	}
@@ -334,7 +342,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * request before it is read and converted for {@code @RequestBody} and
 	 * {@code HttpEntity} method arguments.
 	 */
-	public void setRequestBodyAdvice(List<RequestBodyAdvice> requestBodyAdvice) {
+	public void setRequestBodyAdvice(@Nullable List<RequestBodyAdvice> requestBodyAdvice) {
 		if (requestBodyAdvice != null) {
 			this.requestResponseBodyAdvice.addAll(requestBodyAdvice);
 		}
@@ -345,7 +353,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * response before {@code @ResponseBody} or {@code ResponseEntity} return
 	 * values are written to the response body.
 	 */
-	public void setResponseBodyAdvice(List<ResponseBodyAdvice<?>> responseBodyAdvice) {
+	public void setResponseBodyAdvice(@Nullable List<ResponseBodyAdvice<?>> responseBodyAdvice) {
 		if (responseBodyAdvice != null) {
 			this.requestResponseBodyAdvice.addAll(responseBodyAdvice);
 		}
@@ -362,6 +370,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	/**
 	 * Return the configured WebBindingInitializer, or {@code null} if none.
 	 */
+	@Nullable
 	public WebBindingInitializer getWebBindingInitializer() {
 		return this.webBindingInitializer;
 	}
@@ -396,7 +405,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * @param interceptors the interceptors to register
 	 */
 	public void setCallableInterceptors(List<CallableProcessingInterceptor> interceptors) {
-		Assert.notNull(interceptors);
+		Assert.notNull(interceptors, "CallableProcessingInterceptor List must not be null");
 		this.callableInterceptors = interceptors.toArray(new CallableProcessingInterceptor[interceptors.size()]);
 	}
 
@@ -405,8 +414,24 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * @param interceptors the interceptors to register
 	 */
 	public void setDeferredResultInterceptors(List<DeferredResultProcessingInterceptor> interceptors) {
-		Assert.notNull(interceptors);
+		Assert.notNull(interceptors, "DeferredResultProcessingInterceptor List must not be null");
 		this.deferredResultInterceptors = interceptors.toArray(new DeferredResultProcessingInterceptor[interceptors.size()]);
+	}
+
+	/**
+	 * Configure the registry for reactive library types to be supported as
+	 * return values from controller methods.
+	 */
+	public void setReactiveRegistry(ReactiveAdapterRegistry reactiveRegistry) {
+		Assert.notNull(reactiveRegistry, "ReactiveAdapterRegistry is required");
+		this.reactiveRegistry = this.reactiveRegistry;
+	}
+
+	/**
+	 * Return the configured reactive type registry of adapters.
+	 */
+	public ReactiveAdapterRegistry getReactiveAdapterRegistry() {
+		return this.reactiveRegistry;
 	}
 
 	/**
@@ -502,6 +527,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	/**
 	 * Return the owning factory of this bean instance, or {@code null} if none.
 	 */
+	@Nullable
 	protected ConfigurableBeanFactory getBeanFactory() {
 		return this.beanFactory;
 	}
@@ -534,36 +560,40 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			logger.info("Looking for @ControllerAdvice: " + getApplicationContext());
 		}
 
-		List<ControllerAdviceBean> beans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
-		AnnotationAwareOrderComparator.sort(beans);
+		List<ControllerAdviceBean> adviceBeans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
+		AnnotationAwareOrderComparator.sort(adviceBeans);
 
 		List<Object> requestResponseBodyAdviceBeans = new ArrayList<>();
 
-		for (ControllerAdviceBean bean : beans) {
-			Set<Method> attrMethods = MethodIntrospector.selectMethods(bean.getBeanType(), MODEL_ATTRIBUTE_METHODS);
+		for (ControllerAdviceBean adviceBean : adviceBeans) {
+			Class<?> beanType = adviceBean.getBeanType();
+			if (beanType == null) {
+				throw new IllegalStateException("Unresolvable type for ControllerAdviceBean: " + adviceBean);
+			}
+			Set<Method> attrMethods = MethodIntrospector.selectMethods(beanType, MODEL_ATTRIBUTE_METHODS);
 			if (!attrMethods.isEmpty()) {
-				this.modelAttributeAdviceCache.put(bean, attrMethods);
+				this.modelAttributeAdviceCache.put(adviceBean, attrMethods);
 				if (logger.isInfoEnabled()) {
-					logger.info("Detected @ModelAttribute methods in " + bean);
+					logger.info("Detected @ModelAttribute methods in " + adviceBean);
 				}
 			}
-			Set<Method> binderMethods = MethodIntrospector.selectMethods(bean.getBeanType(), INIT_BINDER_METHODS);
+			Set<Method> binderMethods = MethodIntrospector.selectMethods(beanType, INIT_BINDER_METHODS);
 			if (!binderMethods.isEmpty()) {
-				this.initBinderAdviceCache.put(bean, binderMethods);
+				this.initBinderAdviceCache.put(adviceBean, binderMethods);
 				if (logger.isInfoEnabled()) {
-					logger.info("Detected @InitBinder methods in " + bean);
+					logger.info("Detected @InitBinder methods in " + adviceBean);
 				}
 			}
-			if (RequestBodyAdvice.class.isAssignableFrom(bean.getBeanType())) {
-				requestResponseBodyAdviceBeans.add(bean);
+			if (RequestBodyAdvice.class.isAssignableFrom(beanType)) {
+				requestResponseBodyAdviceBeans.add(adviceBean);
 				if (logger.isInfoEnabled()) {
-					logger.info("Detected RequestBodyAdvice bean in " + bean);
+					logger.info("Detected RequestBodyAdvice bean in " + adviceBean);
 				}
 			}
-			if (ResponseBodyAdvice.class.isAssignableFrom(bean.getBeanType())) {
-				requestResponseBodyAdviceBeans.add(bean);
+			if (ResponseBodyAdvice.class.isAssignableFrom(beanType)) {
+				requestResponseBodyAdviceBeans.add(adviceBean);
 				if (logger.isInfoEnabled()) {
-					logger.info("Detected ResponseBodyAdvice bean in " + bean);
+					logger.info("Detected ResponseBodyAdvice bean in " + adviceBean);
 				}
 			}
 		}
@@ -664,7 +694,8 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		handlers.add(new ModelAndViewMethodReturnValueHandler());
 		handlers.add(new ModelMethodProcessor());
 		handlers.add(new ViewMethodReturnValueHandler());
-		handlers.add(new ResponseBodyEmitterReturnValueHandler(getMessageConverters()));
+		handlers.add(new ResponseBodyEmitterReturnValueHandler(getMessageConverters(),
+				this.reactiveRegistry, this.taskExecutor, this.contentNegotiationManager));
 		handlers.add(new StreamingResponseBodyReturnValueHandler());
 		handlers.add(new HttpEntityMethodProcessor(getMessageConverters(),
 				this.contentNegotiationManager, this.requestResponseBodyAdvice));
@@ -786,6 +817,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	 * @since 4.2
 	 * @see #createInvocableHandlerMethod(HandlerMethod)
 	 */
+	@Nullable
 	protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
 			HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
 
@@ -856,14 +888,14 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		}
 		List<InvocableHandlerMethod> attrMethods = new ArrayList<>();
 		// Global methods first
-		for (Entry<ControllerAdviceBean, Set<Method>> entry : this.modelAttributeAdviceCache.entrySet()) {
-			if (entry.getKey().isApplicableToBeanType(handlerType)) {
-				Object bean = entry.getKey().resolveBean();
-				for (Method method : entry.getValue()) {
+		this.modelAttributeAdviceCache.forEach((clazz, methodSet) -> {
+			if (clazz.isApplicableToBeanType(handlerType)) {
+				Object bean = clazz.resolveBean();
+				for (Method method : methodSet) {
 					attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
 				}
 			}
-		}
+		});
 		for (Method method : methods) {
 			Object bean = handlerMethod.getBean();
 			attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
@@ -888,14 +920,14 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		}
 		List<InvocableHandlerMethod> initBinderMethods = new ArrayList<>();
 		// Global methods first
-		for (Entry<ControllerAdviceBean, Set<Method>> entry : this.initBinderAdviceCache.entrySet()) {
-			if (entry.getKey().isApplicableToBeanType(handlerType)) {
-				Object bean = entry.getKey().resolveBean();
-				for (Method method : entry.getValue()) {
+		this.initBinderAdviceCache.forEach((clazz, methodSet) -> {
+			if (clazz.isApplicableToBeanType(handlerType)) {
+				Object bean = clazz.resolveBean();
+				for (Method method : methodSet) {
 					initBinderMethods.add(createInitBinderMethod(bean, method));
 				}
 			}
-		}
+		});
 		for (Method method : methods) {
 			Object bean = handlerMethod.getBean();
 			initBinderMethods.add(createInitBinderMethod(bean, method));
@@ -925,6 +957,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		return new ServletRequestDataBinderFactory(binderMethods, getWebBindingInitializer());
 	}
 
+	@Nullable
 	private ModelAndView getModelAndView(ModelAndViewContainer mavContainer,
 			ModelFactory modelFactory, NativeWebRequest webRequest) throws Exception {
 
@@ -940,7 +973,9 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		if (model instanceof RedirectAttributes) {
 			Map<String, ?> flashAttributes = ((RedirectAttributes) model).getFlashAttributes();
 			HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
-			RequestContextUtils.getOutputFlashMap(request).putAll(flashAttributes);
+			if (request != null) {
+				RequestContextUtils.getOutputFlashMap(request).putAll(flashAttributes);
+			}
 		}
 		return mav;
 	}
@@ -949,22 +984,14 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	/**
 	 * MethodFilter that matches {@link InitBinder @InitBinder} methods.
 	 */
-	public static final MethodFilter INIT_BINDER_METHODS = new MethodFilter() {
-		@Override
-		public boolean matches(Method method) {
-			return AnnotationUtils.findAnnotation(method, InitBinder.class) != null;
-		}
-	};
+	public static final MethodFilter INIT_BINDER_METHODS = method ->
+			AnnotationUtils.findAnnotation(method, InitBinder.class) != null;
 
 	/**
 	 * MethodFilter that matches {@link ModelAttribute @ModelAttribute} methods.
 	 */
-	public static final MethodFilter MODEL_ATTRIBUTE_METHODS = new MethodFilter() {
-		@Override
-		public boolean matches(Method method) {
-			return ((AnnotationUtils.findAnnotation(method, RequestMapping.class) == null) &&
-					(AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null));
-		}
-	};
+	public static final MethodFilter MODEL_ATTRIBUTE_METHODS = method ->
+			((AnnotationUtils.findAnnotation(method, RequestMapping.class) == null) &&
+			(AnnotationUtils.findAnnotation(method, ModelAttribute.class) != null));
 
 }

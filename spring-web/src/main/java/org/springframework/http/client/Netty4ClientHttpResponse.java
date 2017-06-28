@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.util.Assert;
 
 /**
- * {@link org.springframework.http.client.ClientHttpResponse} implementation
- * that uses Netty 4 to parse responses.
+ * {@link ClientHttpResponse} implementation based on Netty 4.
  *
  * @author Arjen Poutsma
  * @since 4.1.2
+ * @deprecated as of Spring 5.0, in favor of {@link org.springframework.http.client.reactive.ReactorClientHttpConnector}
  */
+@Deprecated
 class Netty4ClientHttpResponse extends AbstractClientHttpResponse {
 
 	private final ChannelHandlerContext context;

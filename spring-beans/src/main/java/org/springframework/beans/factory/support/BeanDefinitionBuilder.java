@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,11 @@
 
 package org.springframework.beans.factory.support;
 
+import java.util.function.Supplier;
+
+import org.springframework.beans.factory.config.BeanDefinitionCustomizer;
 import org.springframework.beans.factory.config.RuntimeBeanReference;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ObjectUtils;
 
 /**
@@ -43,6 +47,17 @@ public class BeanDefinitionBuilder {
 
 	/**
 	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link GenericBeanDefinition}.
+	 * @param beanClassName the class name for the bean that the definition is being created for
+	 */
+	public static BeanDefinitionBuilder genericBeanDefinition(String beanClassName) {
+		BeanDefinitionBuilder builder = new BeanDefinitionBuilder();
+		builder.beanDefinition = new GenericBeanDefinition();
+		builder.beanDefinition.setBeanClassName(beanClassName);
+		return builder;
+	}
+
+	/**
+	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link GenericBeanDefinition}.
 	 * @param beanClass the {@code Class} of the bean that the definition is being created for
 	 */
 	public static BeanDefinitionBuilder genericBeanDefinition(Class<?> beanClass) {
@@ -54,33 +69,17 @@ public class BeanDefinitionBuilder {
 
 	/**
 	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link GenericBeanDefinition}.
-	 * @param beanClassName the class name for the bean that the definition is being created for
+	 * @param beanClass the {@code Class} of the bean that the definition is being created for
+	 * @param instanceSupplier a callback for creating an instance of the bean
+	 * @since 5.0
 	 */
-	public static BeanDefinitionBuilder genericBeanDefinition(String beanClassName) {
+	public static <T> BeanDefinitionBuilder genericBeanDefinition(
+			@Nullable Class<T> beanClass, Supplier<T> instanceSupplier) {
+
 		BeanDefinitionBuilder builder = new BeanDefinitionBuilder();
 		builder.beanDefinition = new GenericBeanDefinition();
-		builder.beanDefinition.setBeanClassName(beanClassName);
-		return builder;
-	}
-
-	/**
-	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link RootBeanDefinition}.
-	 * @param beanClass the {@code Class} of the bean that the definition is being created for
-	 */
-	public static BeanDefinitionBuilder rootBeanDefinition(Class<?> beanClass) {
-		return rootBeanDefinition(beanClass, null);
-	}
-
-	/**
-	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link RootBeanDefinition}.
-	 * @param beanClass the {@code Class} of the bean that the definition is being created for
-	 * @param factoryMethodName the name of the method to use to construct the bean instance
-	 */
-	public static BeanDefinitionBuilder rootBeanDefinition(Class<?> beanClass, String factoryMethodName) {
-		BeanDefinitionBuilder builder = new BeanDefinitionBuilder();
-		builder.beanDefinition = new RootBeanDefinition();
 		builder.beanDefinition.setBeanClass(beanClass);
-		builder.beanDefinition.setFactoryMethodName(factoryMethodName);
+		builder.beanDefinition.setInstanceSupplier(instanceSupplier);
 		return builder;
 	}
 
@@ -97,10 +96,31 @@ public class BeanDefinitionBuilder {
 	 * @param beanClassName the class name for the bean that the definition is being created for
 	 * @param factoryMethodName the name of the method to use to construct the bean instance
 	 */
-	public static BeanDefinitionBuilder rootBeanDefinition(String beanClassName, String factoryMethodName) {
+	public static BeanDefinitionBuilder rootBeanDefinition(String beanClassName, @Nullable String factoryMethodName) {
 		BeanDefinitionBuilder builder = new BeanDefinitionBuilder();
 		builder.beanDefinition = new RootBeanDefinition();
 		builder.beanDefinition.setBeanClassName(beanClassName);
+		builder.beanDefinition.setFactoryMethodName(factoryMethodName);
+		return builder;
+	}
+
+	/**
+	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link RootBeanDefinition}.
+	 * @param beanClass the {@code Class} of the bean that the definition is being created for
+	 */
+	public static BeanDefinitionBuilder rootBeanDefinition(Class<?> beanClass) {
+		return rootBeanDefinition(beanClass, null);
+	}
+
+	/**
+	 * Create a new {@code BeanDefinitionBuilder} used to construct a {@link RootBeanDefinition}.
+	 * @param beanClass the {@code Class} of the bean that the definition is being created for
+	 * @param factoryMethodName the name of the method to use to construct the bean instance
+	 */
+	public static BeanDefinitionBuilder rootBeanDefinition(Class<?> beanClass, @Nullable String factoryMethodName) {
+		BeanDefinitionBuilder builder = new BeanDefinitionBuilder();
+		builder.beanDefinition = new RootBeanDefinition();
+		builder.beanDefinition.setBeanClass(beanClass);
 		builder.beanDefinition.setFactoryMethodName(factoryMethodName);
 		return builder;
 	}
@@ -159,10 +179,22 @@ public class BeanDefinitionBuilder {
 	}
 
 	/**
-	 * Set the name of the factory method to use for this definition.
+	 * Set the name of a static factory method to use for this definition,
+	 * to be called on this bean's class.
 	 */
 	public BeanDefinitionBuilder setFactoryMethod(String factoryMethod) {
 		this.beanDefinition.setFactoryMethodName(factoryMethod);
+		return this;
+	}
+
+	/**
+	 * Set the name of a non-static factory method to use for this definition,
+	 * including the bean name of the factory instance to call the method on.
+	 * @since 4.3.6
+	 */
+	public BeanDefinitionBuilder setFactoryMethodOnBean(String factoryMethod, String factoryBean) {
+		this.beanDefinition.setFactoryMethodName(factoryMethod);
+		this.beanDefinition.setFactoryBeanName(factoryBean);
 		return this;
 	}
 
@@ -283,6 +315,17 @@ public class BeanDefinitionBuilder {
 	 */
 	public BeanDefinitionBuilder setRole(int role) {
 		this.beanDefinition.setRole(role);
+		return this;
+	}
+
+	/**
+	 * Apply the given customizers to the underlying bean definition.
+	 * @since 5.0
+	 */
+	public BeanDefinitionBuilder applyCustomizers(BeanDefinitionCustomizer... customizers) {
+		for (BeanDefinitionCustomizer customizer : customizers) {
+			customizer.customize(beanDefinition);
+		}
 		return this;
 	}
 

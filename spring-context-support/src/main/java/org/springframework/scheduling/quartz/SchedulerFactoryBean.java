@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.SchedulingException;
-import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
 /**
@@ -105,6 +105,7 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	private static final ThreadLocal<DataSource> configTimeNonTransactionalDataSourceHolder =
 			new ThreadLocal<>();
 
+
 	/**
 	 * Return the ResourceLoader for the currently configured Quartz Scheduler,
 	 * to be used by ResourceLoaderClassLoadHelper.
@@ -114,6 +115,7 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	 * @see #setApplicationContext
 	 * @see ResourceLoaderClassLoadHelper
 	 */
+	@Nullable
 	public static ResourceLoader getConfigTimeResourceLoader() {
 		return configTimeResourceLoaderHolder.get();
 	}
@@ -127,6 +129,7 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	 * @see #setTaskExecutor
 	 * @see LocalTaskExecutorThreadPool
 	 */
+	@Nullable
 	public static Executor getConfigTimeTaskExecutor() {
 		return configTimeTaskExecutorHolder.get();
 	}
@@ -140,6 +143,7 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	 * @see #setDataSource
 	 * @see LocalDataSourceJobStore
 	 */
+	@Nullable
 	public static DataSource getConfigTimeDataSource() {
 		return configTimeDataSourceHolder.get();
 	}
@@ -153,6 +157,7 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	 * @see #setNonTransactionalDataSource
 	 * @see LocalDataSourceJobStore
 	 */
+	@Nullable
 	public static DataSource getConfigTimeNonTransactionalDataSource() {
 		return configTimeNonTransactionalDataSourceHolder.get();
 	}
@@ -210,7 +215,6 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	 * @see #setQuartzProperties
 	 */
 	public void setSchedulerFactoryClass(Class<? extends SchedulerFactory> schedulerFactoryClass) {
-		Assert.isAssignable(SchedulerFactory.class, schedulerFactoryClass);
 		this.schedulerFactoryClass = schedulerFactoryClass;
 	}
 
@@ -579,14 +583,14 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 	 * @see #afterPropertiesSet
 	 * @see org.quartz.SchedulerFactory#getScheduler
 	 */
-	protected Scheduler createScheduler(SchedulerFactory schedulerFactory, String schedulerName)
+	protected Scheduler createScheduler(SchedulerFactory schedulerFactory, @Nullable String schedulerName)
 			throws SchedulerException {
 
 		// Override thread context ClassLoader to work around naive Quartz ClassLoadHelper loading.
 		Thread currentThread = Thread.currentThread();
 		ClassLoader threadContextClassLoader = currentThread.getContextClassLoader();
 		boolean overrideClassLoader = (this.resourceLoader != null &&
-				!this.resourceLoader.getClassLoader().equals(threadContextClassLoader));
+				this.resourceLoader.getClassLoader() != threadContextClassLoader);
 		if (overrideClassLoader) {
 			currentThread.setContextClassLoader(this.resourceLoader.getClassLoader());
 		}
@@ -652,6 +656,8 @@ public class SchedulerFactoryBean extends SchedulerAccessor implements FactoryBe
 				logger.info("Will start Quartz Scheduler [" + scheduler.getSchedulerName() +
 						"] in " + startupDelay + " seconds");
 			}
+			// Not using the Quartz startDelayed method since we explicitly want a daemon
+			// thread here, not keeping the JVM alive in case of all other threads ending.
 			Thread schedulerThread = new Thread() {
 				@Override
 				public void run() {

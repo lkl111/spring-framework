@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,11 @@ import org.springframework.web.accept.ContentNegotiationManager;
 import org.springframework.web.accept.ContentNegotiationManagerFactoryBean;
 import org.springframework.web.servlet.HandlerMapping;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * Unit tests for ResourceHttpRequestHandler.
@@ -243,42 +247,43 @@ public class ResourceHttpRequestHandlerTests {
 	@Test // SPR-13658
 	public void getResourceWithRegisteredMediaType() throws Exception {
 		ContentNegotiationManagerFactoryBean factory = new ContentNegotiationManagerFactoryBean();
-		factory.addMediaType("css", new MediaType("foo", "bar"));
+		factory.addMediaType("bar", new MediaType("foo", "bar"));
 		factory.afterPropertiesSet();
 		ContentNegotiationManager manager = factory.getObject();
 
 		List<Resource> paths = Collections.singletonList(new ClassPathResource("test/", getClass()));
-		this.handler = new ResourceHttpRequestHandler();
-		this.handler.setLocations(paths);
-		this.handler.setContentNegotiationManager(manager);
-		this.handler.afterPropertiesSet();
+		ResourceHttpRequestHandler handler = new ResourceHttpRequestHandler();
+		handler.setServletContext(new MockServletContext());
+		handler.setLocations(paths);
+		handler.setContentNegotiationManager(manager);
+		handler.afterPropertiesSet();
 
-		this.request.setAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE, "foo.css");
-		this.handler.handleRequest(this.request, this.response);
+		this.request.setAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE, "foo.bar");
+		handler.handleRequest(this.request, this.response);
 
 		assertEquals("foo/bar", this.response.getContentType());
 		assertEquals("h1 { color:red; }", this.response.getContentAsString());
 	}
 
-	@Test // SPR-13658
-	public void getResourceWithRegisteredMediaTypeDefaultStrategy() throws Exception {
+	@Test // SPR-14577
+	public void getMediaTypeWithFavorPathExtensionOff() throws Exception {
 		ContentNegotiationManagerFactoryBean factory = new ContentNegotiationManagerFactoryBean();
 		factory.setFavorPathExtension(false);
-		factory.setDefaultContentType(new MediaType("foo", "bar"));
 		factory.afterPropertiesSet();
 		ContentNegotiationManager manager = factory.getObject();
 
 		List<Resource> paths = Collections.singletonList(new ClassPathResource("test/", getClass()));
-		this.handler = new ResourceHttpRequestHandler();
-		this.handler.setLocations(paths);
-		this.handler.setContentNegotiationManager(manager);
-		this.handler.afterPropertiesSet();
+		ResourceHttpRequestHandler handler = new ResourceHttpRequestHandler();
+		handler.setServletContext(new MockServletContext());
+		handler.setLocations(paths);
+		handler.setContentNegotiationManager(manager);
+		handler.afterPropertiesSet();
 
-		this.request.setAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE, "foo.css");
-		this.handler.handleRequest(this.request, this.response);
+		this.request.addHeader("Accept", "application/json,text/plain,*/*");
+		this.request.setAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE, "foo.html");
+		handler.handleRequest(this.request, this.response);
 
-		assertEquals("foo/bar", this.response.getContentType());
-		assertEquals("h1 { color:red; }", this.response.getContentAsString());
+		assertEquals("text/html", this.response.getContentType());
 	}
 
 	@Test // SPR-14368
@@ -297,13 +302,13 @@ public class ResourceHttpRequestHandlerTests {
 		};
 
 		List<Resource> paths = Collections.singletonList(new ClassPathResource("test/", getClass()));
-		this.handler = new ResourceHttpRequestHandler();
-		this.handler.setServletContext(servletContext);
-		this.handler.setLocations(paths);
-		this.handler.afterPropertiesSet();
+		ResourceHttpRequestHandler handler = new ResourceHttpRequestHandler();
+		handler.setServletContext(servletContext);
+		handler.setLocations(paths);
+		handler.afterPropertiesSet();
 
 		this.request.setAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE, "foo.css");
-		this.handler.handleRequest(this.request, this.response);
+		handler.handleRequest(this.request, this.response);
 
 		assertEquals("foo/bar", this.response.getContentType());
 		assertEquals("h1 { color:red; }", this.response.getContentAsString());
@@ -412,6 +417,7 @@ public class ResourceHttpRequestHandlerTests {
 
 		ResourceHttpRequestHandler handler = new ResourceHttpRequestHandler();
 		handler.setResourceResolvers(Collections.singletonList(pathResolver));
+		handler.setServletContext(new MockServletContext());
 		handler.setLocations(Arrays.asList(location1, location2));
 		handler.afterPropertiesSet();
 

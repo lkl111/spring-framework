@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StringUtils;
@@ -238,6 +239,7 @@ public class UrlPathHelper {
 	 * context path and the servlet path returned by the HttpServletRequest are
 	 * stripped of semicolon content unlike the requesUri.
 	 */
+	@Nullable
 	private String getRemainingPath(String requestUri, String mapping, boolean ignoreCase) {
 		int index1 = 0;
 		int index2 = 0;
@@ -437,7 +439,7 @@ public class UrlPathHelper {
 	 * @see java.net.URLDecoder#decode(String)
 	 */
 	public String decodeRequestString(HttpServletRequest request, String source) {
-		if (this.urlDecode && source != null) {
+		if (this.urlDecode) {
 			return decodeInternal(request, source);
 		}
 		return source;

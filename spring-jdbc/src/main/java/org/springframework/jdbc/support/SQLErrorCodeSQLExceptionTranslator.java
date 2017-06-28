@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.dao.PermissionDeniedDataAccessException;
 import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.InvalidResultSetAccessException;
+import org.springframework.lang.Nullable;
 
 /**
  * Implementation of {@link SQLExceptionTranslator} that analyzes vendor-specific error codes.
@@ -295,7 +296,8 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 	 * as a nested root cause. This implementation always returns null, meaning that
 	 * the translator always falls back to the default error codes.
 	 */
-	protected DataAccessException customTranslate(String task, String sql, SQLException sqlEx) {
+	@Nullable
+	protected DataAccessException customTranslate(String task, @Nullable String sql, SQLException sqlEx) {
 		return null;
 	}
 
@@ -312,8 +314,9 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 	 * sqlEx parameter as a nested root cause.
 	 * @see CustomSQLErrorCodesTranslation#setExceptionClass
 	 */
+	@Nullable
 	protected DataAccessException createCustomException(
-			String task, String sql, SQLException sqlEx, Class<?> exceptionClass) {
+			String task, @Nullable String sql, SQLException sqlEx, Class<?> exceptionClass) {
 
 		// find appropriate constructor
 		try {

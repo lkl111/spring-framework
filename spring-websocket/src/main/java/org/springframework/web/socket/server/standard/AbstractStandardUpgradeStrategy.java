@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.http.server.ServletServerHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.socket.WebSocketExtension;
 import org.springframework.web.socket.WebSocketHandler;
@@ -71,12 +72,12 @@ public abstract class AbstractStandardUpgradeStrategy implements RequestUpgradeS
 	}
 
 	protected final HttpServletRequest getHttpServletRequest(ServerHttpRequest request) {
-		Assert.isTrue(request instanceof ServletServerHttpRequest);
+		Assert.isInstanceOf(ServletServerHttpRequest.class, request, "ServletServerHttpRequest required");
 		return ((ServletServerHttpRequest) request).getServletRequest();
 	}
 
 	protected final HttpServletResponse getHttpServletResponse(ServerHttpResponse response) {
-		Assert.isTrue(response instanceof ServletServerHttpResponse);
+		Assert.isInstanceOf(ServletServerHttpResponse.class, response, "ServletServerHttpResponse required");
 		return ((ServletServerHttpResponse) response).getServletResponse();
 	}
 
@@ -92,8 +93,8 @@ public abstract class AbstractStandardUpgradeStrategy implements RequestUpgradeS
 
 	protected List<WebSocketExtension> getInstalledExtensions(WebSocketContainer container) {
 		List<WebSocketExtension> result = new ArrayList<>();
-		for (Extension ext : container.getInstalledExtensions()) {
-			result.add(new StandardToWebSocketExtensionAdapter(ext));
+		for (Extension extension : container.getInstalledExtensions()) {
+			result.add(new StandardToWebSocketExtensionAdapter(extension));
 		}
 		return result;
 	}
@@ -101,8 +102,9 @@ public abstract class AbstractStandardUpgradeStrategy implements RequestUpgradeS
 
 	@Override
 	public void upgrade(ServerHttpRequest request, ServerHttpResponse response,
-			String selectedProtocol, List<WebSocketExtension> selectedExtensions, Principal user,
-			WebSocketHandler wsHandler, Map<String, Object> attrs) throws HandshakeFailureException {
+			@Nullable String selectedProtocol, List<WebSocketExtension> selectedExtensions,
+			@Nullable Principal user, WebSocketHandler wsHandler, Map<String, Object> attrs)
+			throws HandshakeFailureException {
 
 		HttpHeaders headers = request.getHeaders();
 		InetSocketAddress localAddr = null;
@@ -132,7 +134,7 @@ public abstract class AbstractStandardUpgradeStrategy implements RequestUpgradeS
 	}
 
 	protected abstract void upgradeInternal(ServerHttpRequest request, ServerHttpResponse response,
-			String selectedProtocol, List<Extension> selectedExtensions, Endpoint endpoint)
+			@Nullable String selectedProtocol, List<Extension> selectedExtensions, Endpoint endpoint)
 			throws HandshakeFailureException;
 
 }

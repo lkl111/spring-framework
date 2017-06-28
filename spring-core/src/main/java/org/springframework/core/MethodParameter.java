@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,19 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import kotlin.Metadata;
+import kotlin.reflect.KFunction;
+import kotlin.reflect.KParameter;
+import kotlin.reflect.jvm.ReflectJvmMapping;
+
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 
 /**
  * Helper class that encapsulates the specification of a method parameter, i.e. a {@link Method}
@@ -44,11 +53,15 @@ import org.springframework.util.Assert;
  * @author Rob Harrop
  * @author Andy Clement
  * @author Sam Brannen
+ * @author Sebastien Deleuze
  * @since 2.0
- * @see GenericCollectionTypeResolver
  * @see org.springframework.core.annotation.SynthesizingMethodParameter
  */
 public class MethodParameter {
+
+	private static final boolean kotlinPresent =
+			ClassUtils.isPresent("kotlin.Unit", MethodParameter.class.getClassLoader());
+
 
 	private final Method method;
 
@@ -159,6 +172,7 @@ public class MethodParameter {
 	 * <p>Note: Either Method or Constructor is available.
 	 * @return the Method, or {@code null} if none
 	 */
+	@Nullable
 	public Method getMethod() {
 		return this.method;
 	}
@@ -168,6 +182,7 @@ public class MethodParameter {
 	 * <p>Note: Either Method or Constructor is available.
 	 * @return the Constructor, or {@code null} if none
 	 */
+	@Nullable
 	public Constructor<?> getConstructor() {
 		return this.constructor;
 	}
@@ -267,6 +282,7 @@ public class MethodParameter {
 	 * if none specified (indicating the default type index)
 	 * @see #getNestingLevel()
 	 */
+	@Nullable
 	public Integer getTypeIndexForCurrentLevel() {
 		return getTypeIndexForLevel(this.nestingLevel);
 	}
@@ -277,6 +293,7 @@ public class MethodParameter {
 	 * @return the corresponding type index, or {@code null}
 	 * if none specified (indicating the default type index)
 	 */
+	@Nullable
 	public Integer getTypeIndexForLevel(int nestingLevel) {
 		return getTypeIndexesPerLevel().get(nestingLevel);
 	}
@@ -309,12 +326,30 @@ public class MethodParameter {
 	}
 
 	/**
-	 * Return whether this method parameter is declared as optional
-	 * in the form of Java 8's {@link java.util.Optional}.
+	 * Return whether this method indicates a parameter which is not required:
+	 * either in the form of Java 8's {@link java.util.Optional}, any variant
+	 * of a parameter-level {@code Nullable} annotation (such as from JSR-305
+	 * or the FindBugs set of annotations), or a language-level nullable type
+	 * declaration in Kotlin.
 	 * @since 4.3
 	 */
 	public boolean isOptional() {
-		return (getParameterType() == Optional.class);
+		return (getParameterType() == Optional.class || hasNullableAnnotation() ||
+				(kotlinPresent && KotlinDelegate.isNullable(this)));
+	}
+
+	/**
+	 * Check whether this method parameter is annotated with any variant of a
+	 * {@code Nullable} annotation, e.g. {@code javax.annotation.Nullable} or
+	 * {@code edu.umd.cs.findbugs.annotations.Nullable}.
+	 */
+	private boolean hasNullableAnnotation() {
+		for (Annotation ann : getParameterAnnotations()) {
+			if ("Nullable".equals(ann.annotationType().getSimpleName())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -326,9 +361,8 @@ public class MethodParameter {
 	 * @see #nested()
 	 */
 	public MethodParameter nestedIfOptional() {
-		return (isOptional() ? nested() : this);
+		return (getParameterType() == Optional.class ? nested() : this);
 	}
-
 
 	/**
 	 * Set a containing class to resolve the parameter type against.
@@ -344,7 +378,7 @@ public class MethodParameter {
 	/**
 	 * Set a resolved (generic) parameter type.
 	 */
-	void setParameterType(Class<?> parameterType) {
+	void setParameterType(@Nullable Class<?> parameterType) {
 		this.parameterType = parameterType;
 	}
 
@@ -374,7 +408,7 @@ public class MethodParameter {
 	public Type getGenericParameterType() {
 		if (this.genericParameterType == null) {
 			if (this.parameterIndex < 0) {
-				this.genericParameterType = (this.method != null ? this.method.getGenericReturnType() : null);
+				this.genericParameterType = (this.method != null ? this.method.getGenericReturnType() : void.class);
 			}
 			else {
 				this.genericParameterType = (this.method != null ?
@@ -453,8 +487,10 @@ public class MethodParameter {
 	 * @param annotationType the annotation type to look for
 	 * @return the annotation object, or {@code null} if not found
 	 */
+	@Nullable
 	public <A extends Annotation> A getMethodAnnotation(Class<A> annotationType) {
-		return adaptAnnotation(getAnnotatedElement().getAnnotation(annotationType));
+		A annotation = getAnnotatedElement().getAnnotation(annotationType);
+		return (annotation != null ? adaptAnnotation(annotation) : null);
 	}
 
 	/**
@@ -499,6 +535,7 @@ public class MethodParameter {
 	 * @return the annotation object, or {@code null} if not found
 	 */
 	@SuppressWarnings("unchecked")
+	@Nullable
 	public <A extends Annotation> A getParameterAnnotation(Class<A> annotationType) {
 		Annotation[] anns = getParameterAnnotations();
 		for (Annotation ann : anns) {
@@ -524,7 +561,7 @@ public class MethodParameter {
 	 * this point; it just allows discovery to happen when the application calls
 	 * {@link #getParameterName()} (if ever).
 	 */
-	public void initParameterNameDiscovery(ParameterNameDiscoverer parameterNameDiscoverer) {
+	public void initParameterNameDiscovery(@Nullable ParameterNameDiscoverer parameterNameDiscoverer) {
 		this.parameterNameDiscoverer = parameterNameDiscoverer;
 	}
 
@@ -535,6 +572,7 @@ public class MethodParameter {
 	 * {@link #initParameterNameDiscovery ParameterNameDiscoverer}
 	 * has been set to begin with)
 	 */
+	@Nullable
 	public String getParameterName() {
 		ParameterNameDiscoverer discoverer = this.parameterNameDiscoverer;
 		if (discoverer != null) {
@@ -670,6 +708,48 @@ public class MethodParameter {
 		int count = executable.getParameterCount();
 		Assert.isTrue(parameterIndex < count, () -> "Parameter index needs to be between -1 and " + (count - 1));
 		return parameterIndex;
+	}
+
+
+	/**
+	 * Inner class to avoid a hard dependency on Kotlin at runtime.
+	 */
+	private static class KotlinDelegate {
+
+		/**
+		 * Check whether the specified {@link MethodParameter} represents a nullable Kotlin type or not.
+		 */
+		public static boolean isNullable(MethodParameter param) {
+			if (param.getContainingClass().isAnnotationPresent(Metadata.class)) {
+				Method method = param.getMethod();
+				Constructor<?> ctor = param.getConstructor();
+				int index = param.getParameterIndex();
+				if (method != null && index == -1) {
+					KFunction<?> function = ReflectJvmMapping.getKotlinFunction(method);
+					return (function != null && function.getReturnType().isMarkedNullable());
+				}
+				else {
+					KFunction<?> function = null;
+					if (method != null) {
+						function = ReflectJvmMapping.getKotlinFunction(method);
+					}
+					else if (ctor != null) {
+						function = ReflectJvmMapping.getKotlinFunction(ctor);
+					}
+					if (function != null) {
+						List<KParameter> parameters = function.getParameters();
+						return parameters
+								.stream()
+								.filter(p -> KParameter.Kind.VALUE.equals(p.getKind()))
+								.collect(Collectors.toList())
+								.get(index)
+								.getType()
+								.isMarkedNullable();
+					}
+				}
+			}
+			return false;
+		}
 	}
 
 }

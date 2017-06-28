@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 
@@ -89,6 +90,7 @@ public class BeanConfigurerSupport implements BeanFactoryAware, InitializingBean
 	 * <p>The default implementation builds a {@link ClassNameBeanWiringInfoResolver}.
 	 * @return the default BeanWiringInfoResolver (never {@code null})
 	 */
+	@Nullable
 	protected BeanWiringInfoResolver createDefaultBeanWiringInfoResolver() {
 		return new ClassNameBeanWiringInfoResolver();
 	}
@@ -135,17 +137,15 @@ public class BeanConfigurerSupport implements BeanFactoryAware, InitializingBean
 		}
 
 		try {
-			if (bwi.indicatesAutowiring() ||
-					(bwi.isDefaultBeanName() && !this.beanFactory.containsBean(bwi.getBeanName()))) {
+			if (bwi.indicatesAutowiring() || (bwi.isDefaultBeanName() && bwi.getBeanName() != null &&
+					!this.beanFactory.containsBean(bwi.getBeanName()))) {
 				// Perform autowiring (also applying standard factory / post-processor callbacks).
 				this.beanFactory.autowireBeanProperties(beanInstance, bwi.getAutowireMode(), bwi.getDependencyCheck());
-				Object result = this.beanFactory.initializeBean(beanInstance, bwi.getBeanName());
-				checkExposedObject(result, beanInstance);
+				this.beanFactory.initializeBean(beanInstance, bwi.getBeanName());
 			}
 			else {
 				// Perform explicit wiring based on the specified bean definition.
-				Object result = this.beanFactory.configureBean(beanInstance, bwi.getBeanName());
-				checkExposedObject(result, beanInstance);
+				this.beanFactory.configureBean(beanInstance, bwi.getBeanName());
 			}
 		}
 		catch (BeanCreationException ex) {
@@ -163,14 +163,6 @@ public class BeanConfigurerSupport implements BeanFactoryAware, InitializingBean
 				}
 			}
 			throw ex;
-		}
-	}
-
-	private void checkExposedObject(Object exposedObject, Object originalBeanInstance) {
-		if (exposedObject != originalBeanInstance) {
-			throw new IllegalStateException("Post-processor tried to replace bean instance of type [" +
-					originalBeanInstance.getClass().getName() + "] with (proxy) object of type [" +
-					exposedObject.getClass().getName() + "] - not supported for aspect-configured classes!");
 		}
 	}
 

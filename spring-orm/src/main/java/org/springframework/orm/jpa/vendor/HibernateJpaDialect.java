@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,6 +58,7 @@ import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.datasource.ConnectionHandle;
 import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.orm.ObjectRetrievalFailureException;
 import org.springframework.orm.jpa.DefaultJpaDialect;
@@ -100,7 +101,7 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 			}
 		}
 		// Check that it is the Hibernate FlushMode type, not JPA's...
-		Assert.state(FlushMode.class == getFlushMode.getReturnType());
+		Assert.state(FlushMode.class == getFlushMode.getReturnType(), "Could not find Hibernate getFlushMode method");
 	}
 
 
@@ -177,8 +178,10 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 	}
 
 	@SuppressWarnings("deprecation")
+	@Nullable
 	protected FlushMode prepareFlushMode(Session session, boolean readOnly) throws PersistenceException {
 		FlushMode flushMode = (FlushMode) ReflectionUtils.invokeMethod(getFlushMode, session);
+		Assert.state(flushMode != null, "No FlushMode from Session");
 		if (readOnly) {
 			// We should suppress flushing for a read-only transaction.
 			if (!flushMode.equals(FlushMode.MANUAL)) {
@@ -198,8 +201,10 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 	}
 
 	@Override
-	public void cleanupTransaction(Object transactionData) {
-		((SessionTransactionData) transactionData).resetSessionState();
+	public void cleanupTransaction(@Nullable Object transactionData) {
+		if (transactionData instanceof SessionTransactionData) {
+			((SessionTransactionData) transactionData).resetSessionState();
+		}
 	}
 
 	@Override
@@ -323,8 +328,9 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 
 		private final Integer previousIsolationLevel;
 
-		public SessionTransactionData(
-				Session session, FlushMode previousFlushMode, Connection preparedCon, Integer previousIsolationLevel) {
+		public SessionTransactionData(Session session, @Nullable FlushMode previousFlushMode,
+				@Nullable Connection preparedCon, @Nullable Integer previousIsolationLevel) {
+
 			this.session = session;
 			this.previousFlushMode = previousFlushMode;
 			this.preparedCon = preparedCon;
@@ -375,7 +381,9 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 					// Reflective lookup to find SessionImpl's connection() method on Hibernate 4.x/5.x
 					connectionMethodToUse = session.getClass().getMethod("connection");
 				}
-				return (Connection) ReflectionUtils.invokeMethod(connectionMethodToUse, session);
+				Connection con = (Connection) ReflectionUtils.invokeMethod(connectionMethodToUse, session);
+				Assert.state(con != null, "No Connection from Session");
+				return con;
 			}
 			catch (NoSuchMethodException ex) {
 				throw new IllegalStateException("Cannot find connection() method on Hibernate Session", ex);

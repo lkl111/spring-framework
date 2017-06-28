@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import javax.servlet.ServletContext;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.lang.Nullable;
 import org.springframework.web.context.ServletConfigAware;
 import org.springframework.web.context.ServletContextAware;
 
@@ -70,7 +71,7 @@ public class ServletContextAwareProcessor implements BeanPostProcessor {
 	/**
 	 * Create a new ServletContextAwareProcessor for the given context and config.
 	 */
-	public ServletContextAwareProcessor(ServletContext servletContext, ServletConfig servletConfig) {
+	public ServletContextAwareProcessor(@Nullable ServletContext servletContext, @Nullable ServletConfig servletConfig) {
 		this.servletContext = servletContext;
 		this.servletConfig = servletConfig;
 	}
@@ -81,6 +82,7 @@ public class ServletContextAwareProcessor implements BeanPostProcessor {
 	 * can be overridden by subclasses when a context is obtained after the post-processor
 	 * has been registered.
 	 */
+	@Nullable
 	protected ServletContext getServletContext() {
 		if (this.servletContext == null && getServletConfig() != null) {
 			return getServletConfig().getServletContext();
@@ -89,10 +91,11 @@ public class ServletContextAwareProcessor implements BeanPostProcessor {
 	}
 
 	/**
-	 * Returns the {@link ServletContext} to be injected or {@code null}. This method
+	 * Returns the {@link ServletConfig} to be injected or {@code null}. This method
 	 * can be overridden by subclasses when a context is obtained after the post-processor
 	 * has been registered.
 	 */
+	@Nullable
 	protected ServletConfig getServletConfig() {
 		return this.servletConfig;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,10 +57,11 @@ import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.CollectionFactory;
-import org.springframework.core.GenericCollectionTypeResolver;
 import org.springframework.core.MethodParameter;
+import org.springframework.core.ResolvableType;
 import org.springframework.jmx.support.JmxUtils;
 import org.springframework.jmx.support.ObjectNameManager;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
@@ -224,12 +225,13 @@ public class MBeanClientInterceptor
 	 * Return the management interface of the target MBean,
 	 * or {@code null} if none specified.
 	 */
+	@Nullable
 	protected final Class<?> getManagementInterface() {
 		return this.managementInterface;
 	}
 
 	@Override
-	public void setBeanClassLoader(ClassLoader beanClassLoader) {
+	public void setBeanClassLoader(@Nullable ClassLoader beanClassLoader) {
 		this.beanClassLoader = beanClassLoader;
 	}
 
@@ -369,6 +371,7 @@ public class MBeanClientInterceptor
 	 * @see #setRefreshOnConnectFailure
 	 * @see #doInvoke
 	 */
+	@Nullable
 	protected Object handleConnectFailure(MethodInvocation invocation, Exception ex) throws Throwable {
 		if (this.refreshOnConnectFailure) {
 			String msg = "Could not connect to JMX server - retrying";
@@ -394,6 +397,7 @@ public class MBeanClientInterceptor
 	 * @return the value returned as a result of the re-routed invocation
 	 * @throws Throwable an invocation error propagated to the user
 	 */
+	@Nullable
 	protected Object doInvoke(MethodInvocation invocation) throws Throwable {
 		Method method = invocation.getMethod();
 		try {
@@ -460,6 +464,7 @@ public class MBeanClientInterceptor
 		}
 	}
 
+	@Nullable
 	private Object invokeAttribute(PropertyDescriptor pd, MethodInvocation invocation)
 			throws JMException, IOException {
 
@@ -527,7 +532,8 @@ public class MBeanClientInterceptor
 	 * @return the converted result object, or the passed-in object if no conversion
 	 * is necessary
 	 */
-	protected Object convertResultValueIfNecessary(Object result, MethodParameter parameter) {
+	@Nullable
+	protected Object convertResultValueIfNecessary(@Nullable Object result, MethodParameter parameter) {
 		Class<?> targetClass = parameter.getParameterType();
 		try {
 			if (result == null) {
@@ -546,7 +552,8 @@ public class MBeanClientInterceptor
 					return convertDataArrayToTargetArray(array, targetClass);
 				}
 				else if (Collection.class.isAssignableFrom(targetClass)) {
-					Class<?> elementType = GenericCollectionTypeResolver.getCollectionParameterType(parameter);
+					Class<?> elementType =
+							ResolvableType.forMethodParameter(parameter).asCollection().resolveGeneric();
 					if (elementType != null) {
 						return convertDataArrayToTargetCollection(array, targetClass, elementType);
 					}
@@ -562,7 +569,8 @@ public class MBeanClientInterceptor
 					return convertDataArrayToTargetArray(array, targetClass);
 				}
 				else if (Collection.class.isAssignableFrom(targetClass)) {
-					Class<?> elementType = GenericCollectionTypeResolver.getCollectionParameterType(parameter);
+					Class<?> elementType =
+							ResolvableType.forMethodParameter(parameter).asCollection().resolveGeneric();
 					if (elementType != null) {
 						return convertDataArrayToTargetCollection(array, targetClass, elementType);
 					}
@@ -622,7 +630,7 @@ public class MBeanClientInterceptor
 		 * @param name the name of the method
 		 * @param parameterTypes the arguments in the method signature
 		 */
-		public MethodCacheKey(String name, Class<?>[] parameterTypes) {
+		public MethodCacheKey(String name, @Nullable Class<?>[] parameterTypes) {
 			this.name = name;
 			this.parameterTypes = (parameterTypes != null ? parameterTypes : new Class<?>[0]);
 		}

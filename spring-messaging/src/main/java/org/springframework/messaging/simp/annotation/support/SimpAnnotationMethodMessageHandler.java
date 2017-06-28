@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.format.support.DefaultFormattingConversionService;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.SubscribableChannel;
@@ -146,11 +147,12 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	 * depending on the configured {@code PathMatcher}.
 	 */
 	@Override
-	public void setDestinationPrefixes(Collection<String> prefixes) {
+	public void setDestinationPrefixes(@Nullable Collection<String> prefixes) {
 		super.setDestinationPrefixes(appendSlashes(prefixes));
 	}
 
-	private static Collection<String> appendSlashes(Collection<String> prefixes) {
+	@Nullable
+	private static Collection<String> appendSlashes(@Nullable Collection<String> prefixes) {
 		if (CollectionUtils.isEmpty(prefixes)) {
 			return prefixes;
 		}
@@ -172,9 +174,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	 */
 	public void setMessageConverter(MessageConverter converter) {
 		this.messageConverter = converter;
-		if (converter != null) {
-			((AbstractMessageSendingTemplate<?>) this.clientMessagingTemplate).setMessageConverter(converter);
-		}
+		((AbstractMessageSendingTemplate<?>) this.clientMessagingTemplate).setMessageConverter(converter);
 	}
 
 	/**
@@ -434,7 +434,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 	}
 
 	@Override
-	protected String getLookupDestination(String destination) {
+	protected String getLookupDestination(@Nullable String destination) {
 		if (destination == null) {
 			return null;
 		}
@@ -462,12 +462,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 
 	@Override
 	protected Comparator<SimpMessageMappingInfo> getMappingComparator(final Message<?> message) {
-		return new Comparator<SimpMessageMappingInfo>() {
-			@Override
-			public int compare(SimpMessageMappingInfo info1, SimpMessageMappingInfo info2) {
-				return info1.compareTo(info2, message);
-			}
-		};
+		return (info1, info2) -> info1.compareTo(info2, message);
 	}
 
 	@Override
@@ -480,7 +475,7 @@ public class SimpAnnotationMethodMessageHandler extends AbstractMethodMessageHan
 			Map<String, String> vars = getPathMatcher().extractUriTemplateVariables(pattern, lookupDestination);
 			if (!CollectionUtils.isEmpty(vars)) {
 				MessageHeaderAccessor mha = MessageHeaderAccessor.getAccessor(message, MessageHeaderAccessor.class);
-				Assert.state(mha != null && mha.isMutable());
+				Assert.state(mha != null && mha.isMutable(), "Mutable MessageHeaderAccessor required");
 				mha.setHeader(DestinationVariableMethodArgumentResolver.DESTINATION_TEMPLATE_VARIABLES_HEADER, vars);
 			}
 		}

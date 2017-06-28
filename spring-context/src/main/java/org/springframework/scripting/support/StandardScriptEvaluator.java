@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import javax.script.ScriptException;
 
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.core.io.Resource;
+import org.springframework.lang.Nullable;
 import org.springframework.scripting.ScriptCompilationException;
 import org.springframework.scripting.ScriptEvaluator;
 import org.springframework.scripting.ScriptSource;
@@ -101,7 +102,7 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 	 * @see javax.script.ScriptEngineManager#setBindings(Bindings)
 	 * @see javax.script.SimpleBindings
 	 */
-	public void setGlobalBindings(Map<String, Object> globalBindings) {
+	public void setGlobalBindings(@Nullable Map<String, Object> globalBindings) {
 		if (globalBindings != null) {
 			this.scriptEngineManager.setBindings(StandardScriptUtils.getBindings(globalBindings));
 		}
@@ -121,7 +122,7 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 	}
 
 	@Override
-	public Object evaluate(ScriptSource script, Map<String, Object> argumentBindings) {
+	public Object evaluate(ScriptSource script, @Nullable Map<String, Object> argumentBindings) {
 		ScriptEngine engine = getScriptEngine(script);
 		try {
 			if (CollectionUtils.isEmpty(argumentBindings)) {

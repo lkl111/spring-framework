@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.springframework.jms.listener.SessionAwareMessageListener;
 import org.springframework.jms.listener.SubscriptionNameProvider;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.SimpleMessageConverter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.MethodInvoker;
 import org.springframework.util.ObjectUtils;
@@ -118,8 +119,7 @@ import org.springframework.util.ObjectUtils;
  * @see org.springframework.jms.listener.SessionAwareMessageListener
  * @see org.springframework.jms.listener.AbstractMessageListenerContainer#setMessageListener
  */
-public class MessageListenerAdapter extends AbstractAdaptableMessageListener
-		implements SubscriptionNameProvider {
+public class MessageListenerAdapter extends AbstractAdaptableMessageListener implements SubscriptionNameProvider {
 
 	/**
 	 * Out-of-the-box value for the default listener method: "handleMessage".
@@ -184,6 +184,7 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 		return this.defaultListenerMethod;
 	}
 
+
 	/**
 	 * Spring {@link SessionAwareMessageListener} entry point.
 	 * <p>Delegates the message to the target listener method, with appropriate
@@ -201,14 +202,8 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 		Object delegate = getDelegate();
 		if (delegate != this) {
 			if (delegate instanceof SessionAwareMessageListener) {
-				if (session != null) {
-					((SessionAwareMessageListener<Message>) delegate).onMessage(message, session);
-					return;
-				}
-				else if (!(delegate instanceof MessageListener)) {
-					throw new javax.jms.IllegalStateException("MessageListenerAdapter cannot handle a " +
-							"SessionAwareMessageListener delegate if it hasn't been invoked with a Session itself");
-				}
+				((SessionAwareMessageListener<Message>) delegate).onMessage(message, session);
+				return;
 			}
 			if (delegate instanceof MessageListener) {
 				((MessageListener) delegate).onMessage(message);
@@ -259,6 +254,7 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 	 * @throws JMSException if thrown by JMS API methods
 	 * @see #setDefaultListenerMethod
 	 */
+	@Nullable
 	protected String getListenerMethodName(Message originalMessage, Object extractedMessage) throws JMSException {
 		return getDefaultListenerMethod();
 	}
@@ -291,6 +287,7 @@ public class MessageListenerAdapter extends AbstractAdaptableMessageListener
 	 * @see #getListenerMethodName
 	 * @see #buildListenerArguments
 	 */
+	@Nullable
 	protected Object invokeListenerMethod(String methodName, Object[] arguments) throws JMSException {
 		try {
 			MethodInvoker methodInvoker = new MethodInvoker();

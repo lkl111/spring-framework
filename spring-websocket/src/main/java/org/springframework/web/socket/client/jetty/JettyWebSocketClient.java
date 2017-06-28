@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ import org.springframework.core.task.AsyncListenableTaskExecutor;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.lang.Nullable;
 import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.util.concurrent.ListenableFutureTask;
 import org.springframework.web.socket.WebSocketExtension;
@@ -89,7 +90,7 @@ public class JettyWebSocketClient extends AbstractWebSocketClient implements Lif
 	 *
 	 * <p>By default an instance of {@code SimpleAsyncTaskExecutor} is used.
 	 */
-	public void setTaskExecutor(AsyncListenableTaskExecutor taskExecutor) {
+	public void setTaskExecutor(@Nullable AsyncListenableTaskExecutor taskExecutor) {
 		this.taskExecutor = taskExecutor;
 	}
 
@@ -117,8 +118,8 @@ public class JettyWebSocketClient extends AbstractWebSocketClient implements Lif
 					}
 					this.client.start();
 				}
-				catch (Exception e) {
-					throw new IllegalStateException("Failed to start Jetty client", e);
+				catch (Exception ex) {
+					throw new IllegalStateException("Failed to start Jetty client", ex);
 				}
 			}
 		}
@@ -134,8 +135,8 @@ public class JettyWebSocketClient extends AbstractWebSocketClient implements Lif
 					}
 					this.client.stop();
 				}
-				catch (Exception e) {
-					logger.error("Error stopping Jetty WebSocketClient", e);
+				catch (Exception ex) {
+					logger.error("Error stopping Jetty WebSocketClient", ex);
 				}
 			}
 		}
@@ -169,13 +170,10 @@ public class JettyWebSocketClient extends AbstractWebSocketClient implements Lif
 		final JettyWebSocketSession wsSession = new JettyWebSocketSession(attributes, user);
 		final JettyWebSocketHandlerAdapter listener = new JettyWebSocketHandlerAdapter(wsHandler, wsSession);
 
-		Callable<WebSocketSession> connectTask = new Callable<WebSocketSession>() {
-			@Override
-			public WebSocketSession call() throws Exception {
-				Future<Session> future = client.connect(listener, uri, request);
-				future.get();
-				return wsSession;
-			}
+		Callable<WebSocketSession> connectTask = () -> {
+			Future<Session> future = client.connect(listener, uri, request);
+			future.get();
+			return wsSession;
 		};
 
 		if (this.taskExecutor != null) {
@@ -192,6 +190,7 @@ public class JettyWebSocketClient extends AbstractWebSocketClient implements Lif
 	 * @return the user to make available through {@link WebSocketSession#getPrincipal()};
 	 * 	by default this method returns {@code null}
 	 */
+	@Nullable
 	protected Principal getUser() {
 		return null;
 	}

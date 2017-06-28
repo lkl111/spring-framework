@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@ import java.util.List;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourceRegion;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
@@ -55,8 +57,8 @@ public abstract class HttpRange {
 	public ResourceRegion toResourceRegion(Resource resource) {
 		// Don't try to determine contentLength on InputStreamResource - cannot be read afterwards...
 		// Note: custom InputStreamResource subclasses could provide a pre-calculated content length!
-		Assert.isTrue(InputStreamResource.class != resource.getClass(),
-				"Can't convert an InputStreamResource to a ResourceRegion");
+		Assert.isTrue(resource.getClass() != InputStreamResource.class,
+				"Cannot convert an InputStreamResource to a ResourceRegion");
 		try {
 			long contentLength = resource.contentLength();
 			Assert.isTrue(contentLength > 0, "Resource content length should be > 0");
@@ -122,7 +124,7 @@ public abstract class HttpRange {
 	 * @return the list of ranges
 	 * @throws IllegalArgumentException if the string cannot be parsed
 	 */
-	public static List<HttpRange> parseRanges(String ranges) {
+	public static List<HttpRange> parseRanges(@Nullable String ranges) {
 		if (!StringUtils.hasLength(ranges)) {
 			return Collections.emptyList();
 		}
@@ -131,7 +133,7 @@ public abstract class HttpRange {
 		}
 		ranges = ranges.substring(BYTE_RANGE_PREFIX.length());
 
-		String[] tokens = ranges.split(",\\s*");
+		String[] tokens = StringUtils.tokenizeToStringArray(ranges, ",");
 		List<HttpRange> result = new ArrayList<>(tokens.length);
 		for (String token : tokens) {
 			result.add(parseRange(token));
@@ -162,19 +164,19 @@ public abstract class HttpRange {
 	}
 
 	/**
-	 * Convert each {@code HttpRange} into a {@code ResourceRegion},
-	 * selecting the appropriate segment of the given {@code Resource}
-	 * using the HTTP Range information.
+	 * Convert each {@code HttpRange} into a {@code ResourceRegion}, selecting the
+	 * appropriate segment of the given {@code Resource} using HTTP Range information.
 	 * @param ranges the list of ranges
 	 * @param resource the resource to select the regions from
 	 * @return the list of regions for the given resource
+	 * @since 4.3
 	 */
 	public static List<ResourceRegion> toResourceRegions(List<HttpRange> ranges, Resource resource) {
-		if(ranges == null || ranges.size() == 0) {
+		if (CollectionUtils.isEmpty(ranges)) {
 			return Collections.emptyList();
 		}
 		List<ResourceRegion> regions = new ArrayList<>(ranges.size());
-		for(HttpRange range : ranges) {
+		for (HttpRange range : ranges) {
 			regions.add(range.toResourceRegion(resource));
 		}
 		return regions;
@@ -212,13 +214,13 @@ public abstract class HttpRange {
 
 		private final Long lastPos;
 
-		public ByteRange(long firstPos, Long lastPos) {
+		public ByteRange(long firstPos, @Nullable Long lastPos) {
 			assertPositions(firstPos, lastPos);
 			this.firstPos = firstPos;
 			this.lastPos = lastPos;
 		}
 
-		private void assertPositions(long firstBytePos, Long lastBytePos) {
+		private void assertPositions(long firstBytePos, @Nullable Long lastBytePos) {
 			if (firstBytePos < 0) {
 				throw new IllegalArgumentException("Invalid first byte position: " + firstBytePos);
 			}
@@ -320,7 +322,7 @@ public abstract class HttpRange {
 
 		@Override
 		public int hashCode() {
-			return ObjectUtils.hashCode(this.suffixLength);
+			return Long.hashCode(this.suffixLength);
 		}
 
 		@Override

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.Ordered;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 
@@ -68,7 +69,7 @@ public class ProxyProcessorSupport extends ProxyConfig implements Ordered, BeanC
 	 * {@link org.springframework.beans.factory.BeanFactory} for loading all bean classes.
 	 * This can be overridden here for specific proxies.
 	 */
-	public void setProxyClassLoader(ClassLoader classLoader) {
+	public void setProxyClassLoader(@Nullable ClassLoader classLoader) {
 		this.proxyClassLoader = classLoader;
 		this.classLoaderConfigured = (classLoader != null);
 	}
@@ -140,7 +141,8 @@ public class ProxyProcessorSupport extends ProxyConfig implements Ordered, BeanC
 	 */
 	protected boolean isInternalLanguageInterface(Class<?> ifc) {
 		return (ifc.getName().equals("groovy.lang.GroovyObject") ||
-				ifc.getName().endsWith(".cglib.proxy.Factory"));
+				ifc.getName().endsWith(".cglib.proxy.Factory") ||
+				ifc.getName().endsWith(".bytebuddy.MockAccess"));
 	}
 
 }

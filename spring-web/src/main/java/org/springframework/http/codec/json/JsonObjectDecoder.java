@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.http.codec.json;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import io.netty.buffer.ByteBuf;
@@ -32,6 +33,7 @@ import org.springframework.core.codec.AbstractDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.util.MimeType;
 
 /**
@@ -95,8 +97,8 @@ class JsonObjectDecoder extends AbstractDecoder<DataBuffer> {
 	}
 
 	@Override
-	public Flux<DataBuffer> decode(Publisher<DataBuffer> inputStream, ResolvableType elementType,
-			MimeType mimeType, Object... hints) {
+	public Flux<DataBuffer> decode(Publisher<DataBuffer> inputStream, @Nullable ResolvableType elementType,
+			@Nullable MimeType mimeType, @Nullable Map<String, Object> hints) {
 
 		return Flux.from(inputStream)
 				.flatMap(new Function<DataBuffer, Publisher<? extends DataBuffer>>() {
@@ -117,6 +119,7 @@ class JsonObjectDecoder extends AbstractDecoder<DataBuffer> {
 					this.writerIndex = this.input.writerIndex();
 				}
 				else {
+					this.index = this.index - this.input.readerIndex();
 					this.input = Unpooled.copiedBuffer(this.input,
 							Unpooled.copiedBuffer(buffer.asByteBuffer()));
 					DataBufferUtils.release(buffer);
@@ -144,9 +147,7 @@ class JsonObjectDecoder extends AbstractDecoder<DataBuffer> {
 						if (this.openBraces == 0) {
 							ByteBuf json = extractObject(this.input, this.input.readerIndex(),
 									this.index + 1 - this.input.readerIndex());
-							if (json != null) {
-								chunks.add(dataBufferFactory.wrap(json.nioBuffer()));
-							}
+							chunks.add(dataBufferFactory.wrap(json.nioBuffer()));
 
 							// The JSON object/array was extracted => discard the bytes from
 							// the input buffer.
@@ -171,16 +172,12 @@ class JsonObjectDecoder extends AbstractDecoder<DataBuffer> {
 							int idxNoSpaces = this.index - 1;
 							while (idxNoSpaces >= this.input.readerIndex() &&
 									Character.isWhitespace(this.input.getByte(idxNoSpaces))) {
-
 								idxNoSpaces--;
 							}
 
 							ByteBuf json = extractObject(this.input, this.input.readerIndex(),
 									idxNoSpaces + 1 - this.input.readerIndex());
-
-							if (json != null) {
-								chunks.add(dataBufferFactory.wrap(json.nioBuffer()));
-							}
+							chunks.add(dataBufferFactory.wrap(json.nioBuffer()));
 
 							this.input.readerIndex(this.index + 1);
 
@@ -210,9 +207,6 @@ class JsonObjectDecoder extends AbstractDecoder<DataBuffer> {
 					}
 				}
 
-				if (this.input.readableBytes() == 0) {
-					this.index = 0;
-				}
 				return Flux.fromIterable(chunks);
 			}
 

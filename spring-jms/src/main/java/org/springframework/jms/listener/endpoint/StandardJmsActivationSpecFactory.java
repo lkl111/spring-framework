@@ -29,6 +29,7 @@ import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.PropertyAccessorFactory;
 import org.springframework.jms.support.destination.DestinationResolutionException;
 import org.springframework.jms.support.destination.DestinationResolver;
+import org.springframework.lang.Nullable;
 
 /**
  * Standard implementation of the {@link JmsActivationSpecFactory} interface.
@@ -86,16 +87,18 @@ public class StandardJmsActivationSpecFactory implements JmsActivationSpecFactor
 	 * or {@link org.springframework.jms.support.destination.BeanFactoryDestinationResolver}
 	 * but not {@link org.springframework.jms.support.destination.DynamicDestinationResolver}.
 	 */
-	public void setDestinationResolver(DestinationResolver destinationResolver) {
+	public void setDestinationResolver(@Nullable DestinationResolver destinationResolver) {
 		this.destinationResolver = destinationResolver;
 	}
 
 	/**
 	 * Return the {@link DestinationResolver} to use for resolving destinations names.
 	 */
+	@Nullable
 	public DestinationResolver getDestinationResolver() {
-		return destinationResolver;
+		return this.destinationResolver;
 	}
+
 
 	@Override
 	public ActivationSpec createActivationSpec(ResourceAdapter adapter, JmsActivationSpecConfig config) {
@@ -124,6 +127,7 @@ public class StandardJmsActivationSpecFactory implements JmsActivationSpecFactor
 	 * if not determinable
 	 * @see #setActivationSpecClass
 	 */
+	@Nullable
 	protected Class<?> determineActivationSpecClass(ResourceAdapter adapter) {
 		return null;
 	}

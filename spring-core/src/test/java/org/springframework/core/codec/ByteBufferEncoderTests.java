@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@ package org.springframework.core.codec;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
-import reactor.test.TestSubscriber;
+import reactor.test.StepVerifier;
 
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.buffer.AbstractDataBufferAllocatingTestCase;
@@ -48,9 +49,15 @@ public class ByteBufferEncoderTests extends AbstractDataBufferAllocatingTestCase
 
 	@Test
 	public void canEncode() {
-		assertTrue(this.encoder.canEncode(ResolvableType.forClass(ByteBuffer.class), MimeTypeUtils.TEXT_PLAIN));
-		assertFalse(this.encoder.canEncode(ResolvableType.forClass(Integer.class), MimeTypeUtils.TEXT_PLAIN));
-		assertTrue(this.encoder.canEncode(ResolvableType.forClass(ByteBuffer.class), MimeTypeUtils.APPLICATION_JSON));
+		assertTrue(this.encoder.canEncode(ResolvableType.forClass(ByteBuffer.class),
+				MimeTypeUtils.TEXT_PLAIN));
+		assertFalse(this.encoder.canEncode(ResolvableType.forClass(Integer.class),
+				MimeTypeUtils.TEXT_PLAIN));
+		assertTrue(this.encoder.canEncode(ResolvableType.forClass(ByteBuffer.class),
+				MimeTypeUtils.APPLICATION_JSON));
+
+		// SPR-15464
+		assertFalse(this.encoder.canEncode(ResolvableType.NONE, null));
 	}
 
 	@Test
@@ -62,18 +69,20 @@ public class ByteBufferEncoderTests extends AbstractDataBufferAllocatingTestCase
 
 		Flux<DataBuffer> output = this.encoder.encode(source, this.bufferFactory,
 				ResolvableType.forClassWithGenerics(Publisher.class, ByteBuffer.class),
-				null);
-		TestSubscriber
-				.subscribe(output)
-				.assertValuesWith(b -> {
+				null, Collections.emptyMap());
+		StepVerifier.create(output)
+				.consumeNextWith(b -> {
 					byte[] buf = new byte[3];
 					b.read(buf);
 					assertArrayEquals(fooBytes, buf);
-				}, b -> {
+				})
+				.consumeNextWith(b -> {
 					byte[] buf = new byte[3];
 					b.read(buf);
 					assertArrayEquals(barBytes, buf);
-				});
+				})
+				.expectComplete()
+				.verify();
 	}
 
 }

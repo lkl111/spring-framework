@@ -43,6 +43,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.type.filter.TypeFilter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -99,6 +100,8 @@ public class LocalSessionFactoryBean extends HibernateExceptionTranslator
 	private String[] packagesToScan;
 
 	private AsyncTaskExecutor bootstrapExecutor;
+
+	private boolean metadataSourcesAccessed = false;
 
 	private MetadataSources metadataSources;
 
@@ -340,6 +343,7 @@ public class LocalSessionFactoryBean extends HibernateExceptionTranslator
 	 */
 	public void setMetadataSources(MetadataSources metadataSources) {
 		Assert.notNull(metadataSources, "MetadataSources must not be null");
+		this.metadataSourcesAccessed = true;
 		this.metadataSources = metadataSources;
 	}
 
@@ -352,6 +356,7 @@ public class LocalSessionFactoryBean extends HibernateExceptionTranslator
 	 * @see LocalSessionFactoryBuilder#LocalSessionFactoryBuilder(DataSource, ResourceLoader, MetadataSources)
 	 */
 	public MetadataSources getMetadataSources() {
+		this.metadataSourcesAccessed = true;
 		if (this.metadataSources == null) {
 			BootstrapServiceRegistryBuilder builder = new BootstrapServiceRegistryBuilder();
 			if (this.resourcePatternResolver != null) {
@@ -367,7 +372,7 @@ public class LocalSessionFactoryBean extends HibernateExceptionTranslator
 	 * @param resourceLoader the ResourceLoader to use (never {@code null})
 	 */
 	@Override
-	public void setResourceLoader(ResourceLoader resourceLoader) {
+	public void setResourceLoader(@Nullable ResourceLoader resourceLoader) {
 		this.resourcePatternResolver = ResourcePatternUtils.getResourcePatternResolver(resourceLoader);
 	}
 
@@ -386,6 +391,11 @@ public class LocalSessionFactoryBean extends HibernateExceptionTranslator
 
 	@Override
 	public void afterPropertiesSet() throws IOException {
+		if (this.metadataSources != null && !this.metadataSourcesAccessed) {
+			// Repeated initialization with no user-customized MetadataSources -> clear it.
+			this.metadataSources = null;
+		}
+
 		LocalSessionFactoryBuilder sfb = new LocalSessionFactoryBuilder(
 				this.dataSource, getResourceLoader(), getMetadataSources());
 

@@ -35,6 +35,7 @@ import org.springframework.core.task.TaskRejectedException;
 import org.springframework.core.task.TaskTimeoutException;
 import org.springframework.jca.context.BootstrapContextAware;
 import org.springframework.jndi.JndiLocatorSupport;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.SchedulingException;
 import org.springframework.scheduling.SchedulingTaskExecutor;
 import org.springframework.util.Assert;
@@ -58,7 +59,7 @@ import org.springframework.util.concurrent.ListenableFutureTask;
  * <p>This adapter is also capable of obtaining a JCA WorkManager from JNDI.
  * This is for example appropriate on the Geronimo application server, where
  * WorkManager GBeans (e.g. Geronimo's default "DefaultWorkManager" GBean)
- * can be linked into the J2EE environment through "gbean-ref" entries
+ * can be linked into the Java EE environment through "gbean-ref" entries
  * in the {@code geronimo-web.xml} deployment descriptor.
  *
  * @author Juergen Hoeller
@@ -157,7 +158,7 @@ public class WorkManagerTaskExecutor extends JndiLocatorSupport
 	 * <p>This shared WorkListener instance will be passed on to the
 	 * WorkManager by all {@link #execute} calls on this TaskExecutor.
 	 */
-	public void setWorkListener(WorkListener workListener) {
+	public void setWorkListener(@Nullable WorkListener workListener) {
 		this.workListener = workListener;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.lang.Nullable;
 
 /**
  * A {@code ResourceResolver} that delegates to the chain to locate a resource
@@ -42,11 +44,11 @@ import org.springframework.core.io.Resource;
 public class GzipResourceResolver extends AbstractResourceResolver {
 
 	@Override
-	protected Resource resolveResourceInternal(HttpServletRequest request, String requestPath,
+	protected Resource resolveResourceInternal(@Nullable HttpServletRequest request, String requestPath,
 			List<? extends Resource> locations, ResourceResolverChain chain) {
 
 		Resource resource = chain.resolveResource(request, requestPath, locations);
-		if ((resource == null) || (request != null && !isGzipAccepted(request))) {
+		if (resource == null || (request != null && !isGzipAccepted(request))) {
 			return resource;
 		}
 
@@ -69,14 +71,14 @@ public class GzipResourceResolver extends AbstractResourceResolver {
 	}
 
 	@Override
-	protected String resolveUrlPathInternal(String resourceUrlPath, List<? extends Resource> locations,
-			ResourceResolverChain chain) {
+	protected String resolveUrlPathInternal(String resourceUrlPath,
+			List<? extends Resource> locations, ResourceResolverChain chain) {
 
 		return chain.resolveUrlPath(resourceUrlPath, locations);
 	}
 
 
-	private static final class GzippedResource extends AbstractResource implements EncodedResource {
+	static final class GzippedResource extends AbstractResource implements HttpResource {
 
 		private final Resource original;
 
@@ -140,9 +142,19 @@ public class GzipResourceResolver extends AbstractResourceResolver {
 			return this.gzipped.getDescription();
 		}
 
-		public String getContentEncoding() {
-			return "gzip";
+		@Override
+		public HttpHeaders getResponseHeaders() {
+			HttpHeaders headers;
+			if(this.original instanceof HttpResource) {
+				headers = ((HttpResource) this.original).getResponseHeaders();
+			}
+			else {
+				headers = new HttpHeaders();
+			}
+			headers.add(HttpHeaders.CONTENT_ENCODING, "gzip");
+			return headers;
 		}
+
 	}
 
 }

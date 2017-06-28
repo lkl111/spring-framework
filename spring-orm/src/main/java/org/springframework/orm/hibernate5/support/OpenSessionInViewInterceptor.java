@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,14 @@ import org.hibernate.SessionFactory;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.lang.Nullable;
 import org.springframework.orm.hibernate5.SessionFactoryUtils;
 import org.springframework.orm.hibernate5.SessionHolder;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.context.request.AsyncWebRequestInterceptor;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.context.request.async.CallableProcessingInterceptor;
 import org.springframework.web.context.request.async.WebAsyncManager;
 import org.springframework.web.context.request.async.WebAsyncUtils;
 
@@ -130,7 +132,7 @@ public class OpenSessionInViewInterceptor implements AsyncWebRequestInterceptor 
 	}
 
 	@Override
-	public void postHandle(WebRequest request, ModelMap model) {
+	public void postHandle(WebRequest request, @Nullable ModelMap model) {
 	}
 
 	/**
@@ -138,13 +140,12 @@ public class OpenSessionInViewInterceptor implements AsyncWebRequestInterceptor 
 	 * @see TransactionSynchronizationManager
 	 */
 	@Override
-	public void afterCompletion(WebRequest request, Exception ex) throws DataAccessException {
+	public void afterCompletion(WebRequest request, @Nullable Exception ex) throws DataAccessException {
 		if (!decrementParticipateCount(request)) {
 			SessionHolder sessionHolder =
 					(SessionHolder) TransactionSynchronizationManager.unbindResource(getSessionFactory());
 			logger.debug("Closing Hibernate Session in OpenSessionInViewInterceptor");
 			SessionFactoryUtils.closeSession(sessionHolder.getSession());
-
 		}
 	}
 
@@ -202,10 +203,11 @@ public class OpenSessionInViewInterceptor implements AsyncWebRequestInterceptor 
 	}
 
 	private boolean applySessionBindingInterceptor(WebAsyncManager asyncManager, String key) {
-		if (asyncManager.getCallableInterceptor(key) == null) {
+		CallableProcessingInterceptor cpi = asyncManager.getCallableInterceptor(key);
+		if (cpi == null) {
 			return false;
 		}
-		((AsyncRequestInterceptor) asyncManager.getCallableInterceptor(key)).bindSession();
+		((AsyncRequestInterceptor) cpi).bindSession();
 		return true;
 	}
 

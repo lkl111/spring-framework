@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import java.util.ResourceBundle;
 import java.util.Set;
 
 import org.springframework.beans.factory.BeanClassLoaderAware;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -114,7 +115,7 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 
 	@Override
 	public void setBeanClassLoader(ClassLoader classLoader) {
-		this.beanClassLoader = (classLoader != null ? classLoader : ClassUtils.getDefaultClassLoader());
+		this.beanClassLoader = classLoader;
 	}
 
 
@@ -165,6 +166,7 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 	 * @return the resulting ResourceBundle, or {@code null} if none
 	 * found for the given basename and Locale
 	 */
+	@Nullable
 	protected ResourceBundle getResourceBundle(String basename, Locale locale) {
 		if (getCacheMillis() >= 0) {
 			// Fresh ResourceBundle.getBundle call in order to let ResourceBundle
@@ -238,6 +240,7 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 	 * defined for the given code
 	 * @throws MissingResourceException if thrown by the ResourceBundle
 	 */
+	@Nullable
 	protected MessageFormat getMessageFormat(ResourceBundle bundle, String code, Locale locale)
 			throws MissingResourceException {
 
@@ -287,6 +290,7 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 	 * @see ResourceBundle#getString(String)
 	 * @see ResourceBundle#containsKey(String)
 	 */
+	@Nullable
 	protected String getStringOrNull(ResourceBundle bundle, String key) {
 		if (bundle.containsKey(key)) {
 			try {
@@ -317,6 +321,7 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 	private class MessageSourceControl extends ResourceBundle.Control {
 
 		@Override
+		@Nullable
 		public ResourceBundle newBundle(String baseName, Locale locale, String format, ClassLoader loader, boolean reload)
 				throws IllegalAccessException, InstantiationException, IOException {
 
@@ -328,27 +333,23 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 				final boolean reloadFlag = reload;
 				InputStream stream;
 				try {
-					stream = AccessController.doPrivileged(
-							new PrivilegedExceptionAction<InputStream>() {
-								@Override
-								public InputStream run() throws IOException {
-									InputStream is = null;
-									if (reloadFlag) {
-										URL url = classLoader.getResource(resourceName);
-										if (url != null) {
-											URLConnection connection = url.openConnection();
-											if (connection != null) {
-												connection.setUseCaches(false);
-												is = connection.getInputStream();
-											}
-										}
-									}
-									else {
-										is = classLoader.getResourceAsStream(resourceName);
-									}
-									return is;
+					stream = AccessController.doPrivileged((PrivilegedExceptionAction<InputStream>) () -> {
+						InputStream is = null;
+						if (reloadFlag) {
+							URL url = classLoader.getResource(resourceName);
+							if (url != null) {
+								URLConnection connection = url.openConnection();
+								if (connection != null) {
+									connection.setUseCaches(false);
+									is = connection.getInputStream();
 								}
-							});
+							}
+						}
+						else {
+							is = classLoader.getResourceAsStream(resourceName);
+						}
+						return is;
+					});
 				}
 				catch (PrivilegedActionException ex) {
 					throw (IOException) ex.getException();
@@ -376,6 +377,7 @@ public class ResourceBundleMessageSource extends AbstractResourceBasedMessageSou
 		}
 
 		@Override
+		@Nullable
 		public Locale getFallbackLocale(String baseName, Locale locale) {
 			return (isFallbackToSystemLocale() ? super.getFallbackLocale(baseName, locale) : null);
 		}

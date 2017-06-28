@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@ package org.springframework.jms.listener.endpoint;
 import javax.jms.Session;
 
 import org.springframework.core.Constants;
+import org.springframework.jms.support.QosSettings;
 import org.springframework.jms.support.converter.MessageConverter;
+import org.springframework.lang.Nullable;
 
 /**
  * Common configuration object for activating a JMS message endpoint.
@@ -47,6 +49,8 @@ public class JmsActivationSpecConfig {
 	private boolean pubSubDomain = false;
 
 	private Boolean replyPubSubDomain;
+
+	private QosSettings replyQosSettings;
 
 	private boolean subscriptionDurable = false;
 
@@ -96,6 +100,14 @@ public class JmsActivationSpecConfig {
 		}
 	}
 
+	public void setReplyQosSettings(QosSettings replyQosSettings) {
+		this.replyQosSettings = replyQosSettings;
+	}
+
+	public QosSettings getReplyQosSettings() {
+		return this.replyQosSettings;
+	}
+
 	public void setSubscriptionDurable(boolean subscriptionDurable) {
 		this.subscriptionDurable = subscriptionDurable;
 		if (subscriptionDurable) {
@@ -122,6 +134,7 @@ public class JmsActivationSpecConfig {
 		this.subscriptionName = subscriptionName;
 	}
 
+	@Nullable
 	public String getSubscriptionName() {
 		return this.subscriptionName;
 	}
@@ -131,6 +144,7 @@ public class JmsActivationSpecConfig {
 		this.subscriptionDurable = true;
 	}
 
+	@Nullable
 	public String getDurableSubscriptionName() {
 		return (this.subscriptionDurable ? this.subscriptionName : null);
 	}
@@ -139,6 +153,7 @@ public class JmsActivationSpecConfig {
 		this.clientId = clientId;
 	}
 
+	@Nullable
 	public String getClientId() {
 		return this.clientId;
 	}
@@ -147,6 +162,7 @@ public class JmsActivationSpecConfig {
 		this.messageSelector = messageSelector;
 	}
 
+	@Nullable
 	public String getMessageSelector() {
 		return this.messageSelector;
 	}
@@ -256,6 +272,7 @@ public class JmsActivationSpecConfig {
 	/**
 	 * Return the {@link MessageConverter} to use, if any.
 	 */
+	@Nullable
 	public MessageConverter getMessageConverter() {
 		return this.messageConverter;
 	}

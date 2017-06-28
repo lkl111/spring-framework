@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import org.aopalliance.aop.Advice;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -46,7 +47,7 @@ public abstract class AbstractBeanFactoryPointcutAdvisor extends AbstractPointcu
 
 	private BeanFactory beanFactory;
 
-	private transient Advice advice;
+	private transient volatile Advice advice;
 
 	private transient volatile Object adviceMonitor = new Object();
 
@@ -66,6 +67,7 @@ public abstract class AbstractBeanFactoryPointcutAdvisor extends AbstractPointcu
 	/**
 	 * Return the name of the advice bean that this advisor refers to, if any.
 	 */
+	@Nullable
 	public String getAdviceBeanName() {
 		return this.adviceBeanName;
 	}
@@ -98,12 +100,30 @@ public abstract class AbstractBeanFactoryPointcutAdvisor extends AbstractPointcu
 
 	@Override
 	public Advice getAdvice() {
-		synchronized (this.adviceMonitor) {
-			if (this.advice == null && this.adviceBeanName != null) {
-				Assert.state(this.beanFactory != null, "BeanFactory must be set to resolve 'adviceBeanName'");
-				this.advice = this.beanFactory.getBean(this.adviceBeanName, Advice.class);
+		Advice advice = this.advice;
+		if (advice != null) {
+			return advice;
+		}
+
+		Assert.state(this.adviceBeanName != null, "'adviceBeanName' must be specified");
+		Assert.state(this.beanFactory != null, "BeanFactory must be set to resolve 'adviceBeanName'");
+
+		if (this.beanFactory.isSingleton(this.adviceBeanName)) {
+			// Rely on singleton semantics provided by the factory.
+			advice = this.beanFactory.getBean(this.adviceBeanName, Advice.class);
+			this.advice = advice;
+			return advice;
+		}
+		else {
+			// No singleton guarantees from the factory -> let's lock locally but
+			// reuse the factory's singleton lock, just in case a lazy dependency
+			// of our advice bean happens to trigger the singleton lock implicitly...
+			synchronized (this.adviceMonitor) {
+				if (this.advice == null) {
+					this.advice = this.beanFactory.getBean(this.adviceBeanName, Advice.class);
+				}
+				return this.advice;
 			}
-			return this.advice;
 		}
 	}
 

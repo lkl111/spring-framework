@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.converter.ByteArrayMessageConverter;
@@ -234,6 +235,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 	 * Provide access to the configured PatchMatcher for access from other
 	 * configuration classes.
 	 */
+	@Nullable
 	public final PathMatcher getPathMatcher() {
 		return getBrokerRegistry().getPathMatcher();
 	}
@@ -307,7 +309,9 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 		UserDestinationMessageHandler handler = new UserDestinationMessageHandler(clientInboundChannel(),
 				brokerChannel(), userDestinationResolver());
 		String destination = getBrokerRegistry().getUserDestinationBroadcast();
-		handler.setBroadcastDestination(destination);
+		if (destination != null) {
+			handler.setBroadcastDestination(destination);
+		}
 		return handler;
 	}
 
@@ -317,14 +321,14 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 			return new NoOpMessageHandler();
 		}
 		SimpUserRegistry userRegistry = userRegistry();
-		Assert.isInstanceOf(MultiServerUserRegistry.class, userRegistry);
+		Assert.isInstanceOf(MultiServerUserRegistry.class, userRegistry, "MultiServerUserRegistry required");
 		return new UserRegistryMessageHandler((MultiServerUserRegistry) userRegistry,
 				brokerMessagingTemplate(), getBrokerRegistry().getUserRegistryBroadcast(),
 				messageBrokerTaskScheduler());
 	}
 
 	// Expose alias for 4.1 compatibility
-	@Bean(name={"messageBrokerTaskScheduler", "messageBrokerSockJsTaskScheduler"})
+	@Bean(name = {"messageBrokerTaskScheduler", "messageBrokerSockJsTaskScheduler"})
 	public ThreadPoolTaskScheduler messageBrokerTaskScheduler() {
 		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
 		scheduler.setThreadNamePrefix("MessageBroker-");
@@ -383,7 +387,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 		if (prefix != null) {
 			resolver.setUserDestinationPrefix(prefix);
 		}
-		resolver.setPathMatcher(getBrokerRegistry().getPathMatcher());
+		resolver.setPathMatcher(getPathMatcher());
 		return resolver;
 	}
 
@@ -435,7 +439,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 						return false;
 					}
 					@Override
-					public void validate(Object target, Errors errors) {
+					public void validate(@Nullable Object target, Errors errors) {
 					}
 				};
 			}
@@ -447,6 +451,7 @@ public abstract class AbstractMessageBrokerConfiguration implements ApplicationC
 	 * Override this method to provide a custom {@link Validator}.
 	 * @since 4.0.1
 	 */
+	@Nullable
 	public Validator getValidator() {
 		return null;
 	}

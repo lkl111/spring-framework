@@ -125,8 +125,8 @@ public class DateTimeFormatterFactory {
 	 * Create a new {@code DateTimeFormatter} using this factory.
 	 * <p>If no specific pattern or style has been defined,
 	 * the supplied {@code fallbackFormatter} will be used.
-	 * @param fallbackFormatter the fall-back formatter to use when no specific
-	 * factory properties have been set (can be {@code null}).
+	 * @param fallbackFormatter the fall-back formatter to use
+	 * when no specific factory properties have been set
 	 * @return a new date time formatter
 	 */
 	public DateTimeFormatter createDateTimeFormatter(DateTimeFormatter fallbackFormatter) {
@@ -144,9 +144,6 @@ public class DateTimeFormatterFactory {
 					break;
 				case DATE_TIME:
 					dateTimeFormatter = ISODateTimeFormat.dateTime();
-					break;
-				case NONE:
-					/* no-op */
 					break;
 				default:
 					throw new IllegalStateException("Unsupported ISO format: " + this.iso);

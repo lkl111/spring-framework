@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import org.springframework.core.Constants;
+import org.springframework.lang.Nullable;
 
 /**
  * Proxy for a target DataSource, fetching actual JDBC Connections lazily,
@@ -54,7 +55,7 @@ import org.springframework.core.Constants;
  * without paying a performance penalty if no actual data access happens.
  *
  * <p>This DataSource proxy gives you behavior analogous to JTA and a
- * transactional JNDI DataSource (as provided by the J2EE server), even
+ * transactional JNDI DataSource (as provided by the Java EE server), even
  * with a local transaction strategy like DataSourceTransactionManager or
  * HibernateTransactionManager. It does not add value with Spring's
  * JtaTransactionManager as transaction strategy.
@@ -68,11 +69,8 @@ import org.springframework.core.Constants;
  *
  * <p><b>NOTE:</b> This DataSource proxy needs to return wrapped Connections
  * (which implement the {@link ConnectionProxy} interface) in order to handle
- * lazy fetching of an actual JDBC Connection. Therefore, the returned Connections
- * cannot be cast to a native JDBC Connection type such as OracleConnection or
- * to a connection pool implementation type. Use a corresponding
- * {@link org.springframework.jdbc.support.nativejdbc.NativeJdbcExtractor}
- * or JDBC 4's {@link Connection#unwrap} to retrieve the native JDBC Connection.
+ * lazy fetching of an actual JDBC Connection. Use {@link Connection#unwrap}
+ * to retrieve the native JDBC Connection.
  *
  * @author Juergen Hoeller
  * @since 1.1.4
@@ -159,7 +157,7 @@ public class LazyConnectionDataSourceProxy extends DelegatingDataSource {
 		// via a Connection from the target DataSource, if possible.
 		if (this.defaultAutoCommit == null || this.defaultTransactionIsolation == null) {
 			try {
-				Connection con = getTargetDataSource().getConnection();
+				Connection con = obtainTargetDataSource().getConnection();
 				try {
 					checkDefaultConnectionProperties(con);
 				}
@@ -274,6 +272,7 @@ public class LazyConnectionDataSourceProxy extends DelegatingDataSource {
 		}
 
 		@Override
+		@Nullable
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 			// Invocation on ConnectionProxy interface coming in...
 
@@ -399,8 +398,8 @@ public class LazyConnectionDataSourceProxy extends DelegatingDataSource {
 
 				// Fetch physical Connection from DataSource.
 				this.target = (this.username != null) ?
-						getTargetDataSource().getConnection(this.username, this.password) :
-						getTargetDataSource().getConnection();
+						obtainTargetDataSource().getConnection(this.username, this.password) :
+						obtainTargetDataSource().getConnection();
 
 				// If we still lack default connection properties, check them now.
 				checkDefaultConnectionProperties(this.target);
@@ -408,7 +407,7 @@ public class LazyConnectionDataSourceProxy extends DelegatingDataSource {
 				// Apply kept transaction settings, if any.
 				if (this.readOnly) {
 					try {
-						this.target.setReadOnly(this.readOnly);
+						this.target.setReadOnly(true);
 					}
 					catch (Exception ex) {
 						// "read-only not supported" -> ignore, it's just a hint anyway

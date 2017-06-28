@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.core.codec;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
 
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -24,6 +25,7 @@ import reactor.core.publisher.Flux;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 
@@ -41,15 +43,15 @@ public class ByteBufferEncoder extends AbstractEncoder<ByteBuffer> {
 
 
 	@Override
-	public boolean canEncode(ResolvableType elementType, MimeType mimeType, Object... hints) {
-		Class<?> clazz = elementType.getRawClass();
-		return (super.canEncode(elementType, mimeType, hints) && ByteBuffer.class.isAssignableFrom(clazz));
+	public boolean canEncode(ResolvableType elementType, @Nullable MimeType mimeType) {
+		Class<?> clazz = elementType.resolve(Object.class);
+		return super.canEncode(elementType, mimeType) && ByteBuffer.class.isAssignableFrom(clazz);
 	}
 
 	@Override
 	public Flux<DataBuffer> encode(Publisher<? extends ByteBuffer> inputStream,
-			DataBufferFactory bufferFactory, ResolvableType elementType, MimeType mimeType,
-			Object... hints) {
+			DataBufferFactory bufferFactory, ResolvableType elementType, @Nullable MimeType mimeType,
+			@Nullable Map<String, Object> hints) {
 
 		return Flux.from(inputStream).map(bufferFactory::wrap);
 	}

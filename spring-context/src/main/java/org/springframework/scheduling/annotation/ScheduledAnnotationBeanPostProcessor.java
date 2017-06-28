@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.scheduling.annotation;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -32,12 +33,18 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
+import org.springframework.beans.factory.config.NamedBeanHolder;
+import org.springframework.beans.factory.support.MergedBeanDefinitionPostProcessor;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationListener;
@@ -84,8 +91,9 @@ import org.springframework.util.StringValueResolver;
  * @see org.springframework.scheduling.config.ScheduledTaskRegistrar
  * @see AsyncAnnotationBeanPostProcessor
  */
-public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBeanPostProcessor,
-		Ordered, EmbeddedValueResolverAware, BeanFactoryAware, ApplicationContextAware,
+public class ScheduledAnnotationBeanPostProcessor
+		implements MergedBeanDefinitionPostProcessor, DestructionAwareBeanPostProcessor,
+		Ordered, EmbeddedValueResolverAware, BeanNameAware, BeanFactoryAware, ApplicationContextAware,
 		SmartInitializingSingleton, ApplicationListener<ContextRefreshedEvent>, DisposableBean {
 
 	/**
@@ -103,6 +111,8 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 
 	private StringValueResolver embeddedValueResolver;
 
+	private String beanName;
+
 	private BeanFactory beanFactory;
 
 	private ApplicationContext applicationContext;
@@ -111,7 +121,7 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 
 	private final Set<Class<?>> nonAnnotatedClasses = Collections.newSetFromMap(new ConcurrentHashMap<>(64));
 
-	private final Map<Object, Set<ScheduledTask>> scheduledTasks = new ConcurrentHashMap<>(16);
+	private final Map<Object, Set<ScheduledTask>> scheduledTasks = new IdentityHashMap<>(16);
 
 
 	@Override
@@ -137,6 +147,11 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 	@Override
 	public void setEmbeddedValueResolver(StringValueResolver resolver) {
 		this.embeddedValueResolver = resolver;
+	}
+
+	@Override
+	public void setBeanName(String beanName) {
+		this.beanName = beanName;
 	}
 
 	/**
@@ -165,6 +180,9 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 
 	@Override
 	public void afterSingletonsInstantiated() {
+		// Remove resolved singleton classes from cache
+		this.nonAnnotatedClasses.clear();
+
 		if (this.applicationContext == null) {
 			// Not running in an ApplicationContext -> register tasks early...
 			finishRegistration();
@@ -198,12 +216,12 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 			Assert.state(this.beanFactory != null, "BeanFactory must be set to find scheduler by type");
 			try {
 				// Search for TaskScheduler bean...
-				this.registrar.setTaskScheduler(this.beanFactory.getBean(TaskScheduler.class));
+				this.registrar.setTaskScheduler(resolveSchedulerBean(TaskScheduler.class, false));
 			}
 			catch (NoUniqueBeanDefinitionException ex) {
+				logger.debug("Could not find unique TaskScheduler bean", ex);
 				try {
-					this.registrar.setTaskScheduler(
-							this.beanFactory.getBean(DEFAULT_TASK_SCHEDULER_BEAN_NAME, TaskScheduler.class));
+					this.registrar.setTaskScheduler(resolveSchedulerBean(TaskScheduler.class, true));
 				}
 				catch (NoSuchBeanDefinitionException ex2) {
 					if (logger.isInfoEnabled()) {
@@ -219,12 +237,12 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 				logger.debug("Could not find default TaskScheduler bean", ex);
 				// Search for ScheduledExecutorService bean next...
 				try {
-					this.registrar.setScheduler(this.beanFactory.getBean(ScheduledExecutorService.class));
+					this.registrar.setScheduler(resolveSchedulerBean(ScheduledExecutorService.class, false));
 				}
 				catch (NoUniqueBeanDefinitionException ex2) {
+					logger.debug("Could not find unique ScheduledExecutorService bean", ex2);
 					try {
-						this.registrar.setScheduler(
-								this.beanFactory.getBean(DEFAULT_TASK_SCHEDULER_BEAN_NAME, ScheduledExecutorService.class));
+						this.registrar.setScheduler(resolveSchedulerBean(ScheduledExecutorService.class, true));
 					}
 					catch (NoSuchBeanDefinitionException ex3) {
 						if (logger.isInfoEnabled()) {
@@ -247,6 +265,32 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 		this.registrar.afterPropertiesSet();
 	}
 
+	private <T> T resolveSchedulerBean(Class<T> schedulerType, boolean byName) {
+		if (byName) {
+			T scheduler = this.beanFactory.getBean(DEFAULT_TASK_SCHEDULER_BEAN_NAME, schedulerType);
+			if (this.beanFactory instanceof ConfigurableBeanFactory) {
+				((ConfigurableBeanFactory) this.beanFactory).registerDependentBean(
+						DEFAULT_TASK_SCHEDULER_BEAN_NAME, this.beanName);
+			}
+			return scheduler;
+		}
+		else if (this.beanFactory instanceof AutowireCapableBeanFactory) {
+			NamedBeanHolder<T> holder = ((AutowireCapableBeanFactory) this.beanFactory).resolveNamedBean(schedulerType);
+			if (this.beanFactory instanceof ConfigurableBeanFactory) {
+				((ConfigurableBeanFactory) this.beanFactory).registerDependentBean(
+						holder.getBeanName(), this.beanName);
+			}
+			return holder.getBeanInstance();
+		}
+		else {
+			return this.beanFactory.getBean(schedulerType);
+		}
+	}
+
+
+	@Override
+	public void postProcessMergedBeanDefinition(RootBeanDefinition beanDefinition, Class<?> beanType, String beanName) {
+	}
 
 	@Override
 	public Object postProcessBeforeInitialization(Object bean, String beanName) {
@@ -258,13 +302,10 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 		Class<?> targetClass = AopUtils.getTargetClass(bean);
 		if (!this.nonAnnotatedClasses.contains(targetClass)) {
 			Map<Method, Set<Scheduled>> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
-					new MethodIntrospector.MetadataLookup<Set<Scheduled>>() {
-						@Override
-						public Set<Scheduled> inspect(Method method) {
-							Set<Scheduled> scheduledMethods =
-									AnnotatedElementUtils.getMergedRepeatableAnnotations(method, Scheduled.class, Schedules.class);
-							return (!scheduledMethods.isEmpty() ? scheduledMethods : null);
-						}
+					(MethodIntrospector.MetadataLookup<Set<Scheduled>>) method -> {
+						Set<Scheduled> scheduledMethods = AnnotatedElementUtils.getMergedRepeatableAnnotations(
+								method, Scheduled.class, Schedules.class);
+						return (!scheduledMethods.isEmpty() ? scheduledMethods : null);
 					});
 			if (annotatedMethods.isEmpty()) {
 				this.nonAnnotatedClasses.add(targetClass);
@@ -274,12 +315,8 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 			}
 			else {
 				// Non-empty set of methods
-				for (Map.Entry<Method, Set<Scheduled>> entry : annotatedMethods.entrySet()) {
-					Method method = entry.getKey();
-					for (Scheduled scheduled : entry.getValue()) {
-						processScheduled(scheduled, method, bean);
-					}
-				}
+				annotatedMethods.forEach((method, scheduledMethods) ->
+						scheduledMethods.forEach(scheduled -> processScheduled(scheduled, method, bean)));
 				if (logger.isDebugEnabled()) {
 					logger.debug(annotatedMethods.size() + " @Scheduled methods processed on bean '" + beanName +
 							"': " + annotatedMethods);
@@ -300,11 +337,7 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 			String errorMessage =
 					"Exactly one of the 'cron', 'fixedDelay(String)', or 'fixedRate(String)' attributes is required";
 
-			Set<ScheduledTask> tasks = this.scheduledTasks.get(bean);
-			if (tasks == null) {
-				tasks = new LinkedHashSet<>(4);
-				this.scheduledTasks.put(bean, tasks);
-			}
+			Set<ScheduledTask> tasks = new LinkedHashSet<>(4);
 
 			// Determine initial delay
 			long initialDelay = scheduled.initialDelay();
@@ -314,33 +347,37 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 				if (this.embeddedValueResolver != null) {
 					initialDelayString = this.embeddedValueResolver.resolveStringValue(initialDelayString);
 				}
-				try {
-					initialDelay = Long.parseLong(initialDelayString);
-				}
-				catch (NumberFormatException ex) {
-					throw new IllegalArgumentException(
-							"Invalid initialDelayString value \"" + initialDelayString + "\" - cannot parse into integer");
+				if (StringUtils.hasLength(initialDelayString)) {
+					try {
+						initialDelay = Long.parseLong(initialDelayString);
+					}
+					catch (NumberFormatException ex) {
+						throw new IllegalArgumentException(
+								"Invalid initialDelayString value \"" + initialDelayString + "\" - cannot parse into integer");
+					}
 				}
 			}
 
 			// Check cron expression
 			String cron = scheduled.cron();
 			if (StringUtils.hasText(cron)) {
-				Assert.isTrue(initialDelay == -1, "'initialDelay' not supported for cron triggers");
-				processedSchedule = true;
 				String zone = scheduled.zone();
 				if (this.embeddedValueResolver != null) {
 					cron = this.embeddedValueResolver.resolveStringValue(cron);
 					zone = this.embeddedValueResolver.resolveStringValue(zone);
 				}
-				TimeZone timeZone;
-				if (StringUtils.hasText(zone)) {
-					timeZone = StringUtils.parseTimeZoneString(zone);
+				if (StringUtils.hasLength(cron)) {
+					Assert.isTrue(initialDelay == -1, "'initialDelay' not supported for cron triggers");
+					processedSchedule = true;
+					TimeZone timeZone;
+					if (StringUtils.hasText(zone)) {
+						timeZone = StringUtils.parseTimeZoneString(zone);
+					}
+					else {
+						timeZone = TimeZone.getDefault();
+					}
+					tasks.add(this.registrar.scheduleCronTask(new CronTask(runnable, new CronTrigger(cron, timeZone))));
 				}
-				else {
-					timeZone = TimeZone.getDefault();
-				}
-				tasks.add(this.registrar.scheduleCronTask(new CronTask(runnable, new CronTrigger(cron, timeZone))));
 			}
 
 			// At this point we don't need to differentiate between initial delay set or not anymore
@@ -357,19 +394,21 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 			}
 			String fixedDelayString = scheduled.fixedDelayString();
 			if (StringUtils.hasText(fixedDelayString)) {
-				Assert.isTrue(!processedSchedule, errorMessage);
-				processedSchedule = true;
 				if (this.embeddedValueResolver != null) {
 					fixedDelayString = this.embeddedValueResolver.resolveStringValue(fixedDelayString);
 				}
-				try {
-					fixedDelay = Long.parseLong(fixedDelayString);
+				if (StringUtils.hasLength(fixedDelayString)) {
+					Assert.isTrue(!processedSchedule, errorMessage);
+					processedSchedule = true;
+					try {
+						fixedDelay = Long.parseLong(fixedDelayString);
+					}
+					catch (NumberFormatException ex) {
+						throw new IllegalArgumentException(
+								"Invalid fixedDelayString value \"" + fixedDelayString + "\" - cannot parse into long");
+					}
+					tasks.add(this.registrar.scheduleFixedDelayTask(new IntervalTask(runnable, fixedDelay, initialDelay)));
 				}
-				catch (NumberFormatException ex) {
-					throw new IllegalArgumentException(
-							"Invalid fixedDelayString value \"" + fixedDelayString + "\" - cannot parse into integer");
-				}
-				tasks.add(this.registrar.scheduleFixedDelayTask(new IntervalTask(runnable, fixedDelay, initialDelay)));
 			}
 
 			// Check fixed rate
@@ -381,23 +420,35 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 			}
 			String fixedRateString = scheduled.fixedRateString();
 			if (StringUtils.hasText(fixedRateString)) {
-				Assert.isTrue(!processedSchedule, errorMessage);
-				processedSchedule = true;
 				if (this.embeddedValueResolver != null) {
 					fixedRateString = this.embeddedValueResolver.resolveStringValue(fixedRateString);
 				}
-				try {
-					fixedRate = Long.parseLong(fixedRateString);
+				if (StringUtils.hasLength(fixedRateString)) {
+					Assert.isTrue(!processedSchedule, errorMessage);
+					processedSchedule = true;
+					try {
+						fixedRate = Long.parseLong(fixedRateString);
+					}
+					catch (NumberFormatException ex) {
+						throw new IllegalArgumentException(
+								"Invalid fixedRateString value \"" + fixedRateString + "\" - cannot parse into integer");
+					}
+					tasks.add(this.registrar.scheduleFixedRateTask(new IntervalTask(runnable, fixedRate, initialDelay)));
 				}
-				catch (NumberFormatException ex) {
-					throw new IllegalArgumentException(
-							"Invalid fixedRateString value \"" + fixedRateString + "\" - cannot parse into integer");
-				}
-				tasks.add(this.registrar.scheduleFixedRateTask(new IntervalTask(runnable, fixedRate, initialDelay)));
 			}
 
 			// Check whether we had any attribute set
 			Assert.isTrue(processedSchedule, errorMessage);
+
+			// Finally register the scheduled tasks
+			synchronized (this.scheduledTasks) {
+				Set<ScheduledTask> registeredTasks = this.scheduledTasks.get(bean);
+				if (registeredTasks == null) {
+					registeredTasks = new LinkedHashSet<>(4);
+					this.scheduledTasks.put(bean, registeredTasks);
+				}
+				registeredTasks.addAll(tasks);
+			}
 		}
 		catch (IllegalArgumentException ex) {
 			throw new IllegalStateException(
@@ -408,7 +459,10 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 
 	@Override
 	public void postProcessBeforeDestruction(Object bean, String beanName) {
-		Set<ScheduledTask> tasks = this.scheduledTasks.remove(bean);
+		Set<ScheduledTask> tasks;
+		synchronized (this.scheduledTasks) {
+			tasks = this.scheduledTasks.remove(bean);
+		}
 		if (tasks != null) {
 			for (ScheduledTask task : tasks) {
 				task.cancel();
@@ -418,18 +472,22 @@ public class ScheduledAnnotationBeanPostProcessor implements DestructionAwareBea
 
 	@Override
 	public boolean requiresDestruction(Object bean) {
-		return this.scheduledTasks.containsKey(bean);
+		synchronized (this.scheduledTasks) {
+			return this.scheduledTasks.containsKey(bean);
+		}
 	}
 
 	@Override
 	public void destroy() {
-		Collection<Set<ScheduledTask>> allTasks = this.scheduledTasks.values();
-		for (Set<ScheduledTask> tasks : allTasks) {
-			for (ScheduledTask task : tasks) {
-				task.cancel();
+		synchronized (this.scheduledTasks) {
+			Collection<Set<ScheduledTask>> allTasks = this.scheduledTasks.values();
+			for (Set<ScheduledTask> tasks : allTasks) {
+				for (ScheduledTask task : tasks) {
+					task.cancel();
+				}
 			}
+			this.scheduledTasks.clear();
 		}
-		this.scheduledTasks.clear();
 		this.registrar.destroy();
 	}
 

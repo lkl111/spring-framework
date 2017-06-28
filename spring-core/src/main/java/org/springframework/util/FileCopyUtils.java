@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2013 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+
+import org.springframework.lang.Nullable;
 
 /**
  * Simple utility methods for file and stream copying. All copy methods use a block size
@@ -60,8 +62,9 @@ public abstract class FileCopyUtils {
 	public static int copy(File in, File out) throws IOException {
 		Assert.notNull(in, "No input File specified");
 		Assert.notNull(out, "No output File specified");
+
 		return copy(new BufferedInputStream(new FileInputStream(in)),
-			new BufferedOutputStream(new FileOutputStream(out)));
+				new BufferedOutputStream(new FileOutputStream(out)));
 	}
 
 	/**
@@ -73,6 +76,7 @@ public abstract class FileCopyUtils {
 	public static void copy(byte[] in, File out) throws IOException {
 		Assert.notNull(in, "No input byte array specified");
 		Assert.notNull(out, "No output File specified");
+
 		ByteArrayInputStream inStream = new ByteArrayInputStream(in);
 		OutputStream outStream = new BufferedOutputStream(new FileOutputStream(out));
 		copy(inStream, outStream);
@@ -86,6 +90,7 @@ public abstract class FileCopyUtils {
 	 */
 	public static byte[] copyToByteArray(File in) throws IOException {
 		Assert.notNull(in, "No input File specified");
+
 		return copyToByteArray(new BufferedInputStream(new FileInputStream(in)));
 	}
 
@@ -105,6 +110,7 @@ public abstract class FileCopyUtils {
 	public static int copy(InputStream in, OutputStream out) throws IOException {
 		Assert.notNull(in, "No InputStream specified");
 		Assert.notNull(out, "No OutputStream specified");
+
 		try {
 			return StreamUtils.copy(in, out);
 		}
@@ -132,6 +138,7 @@ public abstract class FileCopyUtils {
 	public static void copy(byte[] in, OutputStream out) throws IOException {
 		Assert.notNull(in, "No input byte array specified");
 		Assert.notNull(out, "No OutputStream specified");
+
 		try {
 			out.write(in);
 		}
@@ -147,11 +154,15 @@ public abstract class FileCopyUtils {
 	/**
 	 * Copy the contents of the given InputStream into a new byte array.
 	 * Closes the stream when done.
-	 * @param in the stream to copy from
-	 * @return the new byte array that has been copied to
+	 * @param in the stream to copy from (may be {@code null} or empty)
+	 * @return the new byte array that has been copied to (possibly empty)
 	 * @throws IOException in case of I/O errors
 	 */
-	public static byte[] copyToByteArray(InputStream in) throws IOException {
+	public static byte[] copyToByteArray(@Nullable InputStream in) throws IOException {
+		if (in == null) {
+			return new byte[0];
+		}
+
 		ByteArrayOutputStream out = new ByteArrayOutputStream(BUFFER_SIZE);
 		copy(in, out);
 		return out.toByteArray();
@@ -173,6 +184,7 @@ public abstract class FileCopyUtils {
 	public static int copy(Reader in, Writer out) throws IOException {
 		Assert.notNull(in, "No Reader specified");
 		Assert.notNull(out, "No Writer specified");
+
 		try {
 			int byteCount = 0;
 			char[] buffer = new char[BUFFER_SIZE];
@@ -208,6 +220,7 @@ public abstract class FileCopyUtils {
 	public static void copy(String in, Writer out) throws IOException {
 		Assert.notNull(in, "No input String specified");
 		Assert.notNull(out, "No Writer specified");
+
 		try {
 			out.write(in);
 		}
@@ -223,11 +236,15 @@ public abstract class FileCopyUtils {
 	/**
 	 * Copy the contents of the given Reader into a String.
 	 * Closes the reader when done.
-	 * @param in the reader to copy from
-	 * @return the String that has been copied to
+	 * @param in the reader to copy from (may be {@code null} or empty)
+	 * @return the String that has been copied to (possibly empty)
 	 * @throws IOException in case of I/O errors
 	 */
-	public static String copyToString(Reader in) throws IOException {
+	public static String copyToString(@Nullable Reader in) throws IOException {
+		if (in == null) {
+			return "";
+		}
+
 		StringWriter out = new StringWriter();
 		copy(in, out);
 		return out.toString();

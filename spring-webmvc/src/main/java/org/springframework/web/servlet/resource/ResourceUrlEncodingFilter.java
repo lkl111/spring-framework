@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package org.springframework.web.servlet.resource;
 import java.io.IOException;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
@@ -26,7 +28,8 @@ import javax.servlet.http.HttpServletResponseWrapper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.lang.Nullable;
+import org.springframework.web.filter.GenericFilterBean;
 import org.springframework.web.util.UrlPathHelper;
 
 /**
@@ -41,16 +44,20 @@ import org.springframework.web.util.UrlPathHelper;
  * @author Brian Clozel
  * @since 4.1
  */
-public class ResourceUrlEncodingFilter extends OncePerRequestFilter {
+public class ResourceUrlEncodingFilter extends GenericFilterBean {
 
 	private static final Log logger = LogFactory.getLog(ResourceUrlEncodingFilter.class);
 
 
 	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-			throws ServletException, IOException {
-
-		filterChain.doFilter(request, new ResourceUrlEncodingResponseWrapper(request, response));
+	public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain)
+			throws IOException, ServletException {
+		if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
+			throw new ServletException("ResourceUrlEncodingFilter just supports HTTP requests");
+		}
+		HttpServletRequest httpRequest = (HttpServletRequest) request;
+		HttpServletResponse httpResponse = (HttpServletResponse) response;
+		filterChain.doFilter(httpRequest, new ResourceUrlEncodingResponseWrapper(httpRequest, httpResponse));
 	}
 
 
@@ -90,6 +97,7 @@ public class ResourceUrlEncodingFilter extends OncePerRequestFilter {
 			return super.encodeURL(url);
 		}
 
+		@Nullable
 		private ResourceUrlProvider getResourceUrlProvider() {
 			return (ResourceUrlProvider) this.request.getAttribute(
 					ResourceUrlProviderExposingInterceptor.RESOURCE_URL_PROVIDER_ATTR);

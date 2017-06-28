@@ -27,12 +27,10 @@ import org.apache.commons.logging.LogFactory;
 
 import org.springframework.core.SpringProperties;
 import org.springframework.core.convert.support.ConfigurableConversionService;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
-
-import static java.lang.String.*;
-import static org.springframework.util.StringUtils.*;
 
 /**
  * Abstract base class for {@link Environment} implementations. Supports the notion of
@@ -124,7 +122,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 	public AbstractEnvironment() {
 		customizePropertySources(this.propertySources);
 		if (this.logger.isDebugEnabled()) {
-			this.logger.debug(format(
+			this.logger.debug(String.format(
 					"Initialized %s with PropertySources %s", getClass().getSimpleName(), this.propertySources));
 		}
 	}
@@ -242,7 +240,8 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 			if (this.activeProfiles.isEmpty()) {
 				String profiles = getProperty(ACTIVE_PROFILES_PROPERTY_NAME);
 				if (StringUtils.hasText(profiles)) {
-					setActiveProfiles(commaDelimitedListToStringArray(trimAllWhitespace(profiles)));
+					setActiveProfiles(StringUtils.commaDelimitedListToStringArray(
+							StringUtils.trimAllWhitespace(profiles)));
 				}
 			}
 			return this.activeProfiles;
@@ -264,7 +263,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 	@Override
 	public void addActiveProfile(String profile) {
 		if (this.logger.isDebugEnabled()) {
-			this.logger.debug(format("Activating profile '%s'", profile));
+			this.logger.debug(String.format("Activating profile '%s'", profile));
 		}
 		validateProfile(profile);
 		doGetActiveProfiles();
@@ -296,7 +295,8 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 			if (this.defaultProfiles.equals(getReservedDefaultProfiles())) {
 				String profiles = getProperty(DEFAULT_PROFILES_PROPERTY_NAME);
 				if (StringUtils.hasText(profiles)) {
-					setDefaultProfiles(commaDelimitedListToStringArray(trimAllWhitespace(profiles)));
+					setDefaultProfiles(StringUtils.commaDelimitedListToStringArray(
+							StringUtils.trimAllWhitespace(profiles)));
 				}
 			}
 			return this.defaultProfiles;
@@ -393,7 +393,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 					}
 					catch (AccessControlException ex) {
 						if (logger.isInfoEnabled()) {
-							logger.info(format("Caught AccessControlException when accessing system " +
+							logger.info(String.format("Caught AccessControlException when accessing system " +
 									"environment variable [%s]; its value will be returned [null]. Reason: %s",
 									attributeName, ex.getMessage()));
 						}
@@ -434,7 +434,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 					}
 					catch (AccessControlException ex) {
 						if (logger.isInfoEnabled()) {
-							logger.info(format("Caught AccessControlException when accessing system " +
+							logger.info(String.format("Caught AccessControlException when accessing system " +
 									"property [%s]; its value will be returned [null]. Reason: %s",
 									attributeName, ex.getMessage()));
 						}
@@ -497,7 +497,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 	}
 
 	@Override
-	public void setValueSeparator(String valueSeparator) {
+	public void setValueSeparator(@Nullable String valueSeparator) {
 		this.propertyResolver.setValueSeparator(valueSeparator);
 	}
 
@@ -569,7 +569,7 @@ public abstract class AbstractEnvironment implements ConfigurableEnvironment {
 
 	@Override
 	public String toString() {
-		return format("%s {activeProfiles=%s, defaultProfiles=%s, propertySources=%s}",
+		return String.format("%s {activeProfiles=%s, defaultProfiles=%s, propertySources=%s}",
 				getClass().getSimpleName(), this.activeProfiles, this.defaultProfiles,
 				this.propertySources);
 	}

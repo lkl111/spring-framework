@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,9 @@ import org.quartz.spi.ClassLoadHelper;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.lang.Nullable;
+import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 
 /**
  * Wrapper that adapts from the Quartz {@link ClassLoadHelper} interface
@@ -73,7 +76,7 @@ public class ResourceLoaderClassLoadHelper implements ClassLoadHelper {
 
 	@Override
 	public Class<?> loadClass(String name) throws ClassNotFoundException {
-		return this.resourceLoader.getClassLoader().loadClass(name);
+		return ClassUtils.forName(name, this.resourceLoader.getClassLoader());
 	}
 
 	@SuppressWarnings("unchecked")
@@ -82,6 +85,7 @@ public class ResourceLoaderClassLoadHelper implements ClassLoadHelper {
 	}
 
 	@Override
+	@Nullable
 	public URL getResource(String name) {
 		Resource resource = this.resourceLoader.getResource(name);
 		if (resource.exists()) {
@@ -101,6 +105,7 @@ public class ResourceLoaderClassLoadHelper implements ClassLoadHelper {
 	}
 
 	@Override
+	@Nullable
 	public InputStream getResourceAsStream(String name) {
 		Resource resource = this.resourceLoader.getResource(name);
 		if (resource.exists()) {
@@ -121,7 +126,9 @@ public class ResourceLoaderClassLoadHelper implements ClassLoadHelper {
 
 	@Override
 	public ClassLoader getClassLoader() {
-		return this.resourceLoader.getClassLoader();
+		ClassLoader classLoader = this.resourceLoader.getClassLoader();
+		Assert.state(classLoader != null, "No ClassLoader");
+		return classLoader;
 	}
 
 }

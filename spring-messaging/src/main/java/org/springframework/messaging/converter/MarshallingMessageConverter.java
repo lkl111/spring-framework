@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.oxm.Marshaller;
@@ -134,7 +135,8 @@ public class MarshallingMessageConverter extends AbstractMessageConverter {
 	}
 
 	@Override
-	protected Object convertFromInternal(Message<?> message, Class<?> targetClass, Object conversionHint) {
+	@Nullable
+	protected Object convertFromInternal(Message<?> message, Class<?> targetClass, @Nullable Object conversionHint) {
 		Assert.notNull(this.unmarshaller, "Property 'unmarshaller' is required");
 		try {
 			Source source = getSource(message.getPayload());
@@ -159,7 +161,8 @@ public class MarshallingMessageConverter extends AbstractMessageConverter {
 	}
 
 	@Override
-	protected Object convertToInternal(Object payload, MessageHeaders headers, Object conversionHint) {
+	@Nullable
+	protected Object convertToInternal(Object payload, @Nullable MessageHeaders headers, @Nullable Object conversionHint) {
 		Assert.notNull(this.marshaller, "Property 'marshaller' is required");
 		try {
 			if (byte[].class == getSerializedPayloadClass()) {
@@ -175,7 +178,7 @@ public class MarshallingMessageConverter extends AbstractMessageConverter {
 				payload = writer.toString();
 			}
 		}
-		catch (Exception ex) {
+		catch (Throwable ex) {
 			throw new MessageConversionException("Could not marshal XML: " + ex.getMessage(), ex);
 		}
 		return payload;

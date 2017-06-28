@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.springframework.context.i18n.LocaleContext;
 import org.springframework.context.i18n.SimpleLocaleContext;
 import org.springframework.context.i18n.TimeZoneAwareLocaleContext;
+import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.LocaleContextResolver;
 import org.springframework.web.servlet.LocaleResolver;
@@ -131,6 +132,7 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 	 * Return the fixed Locale that this resolver will return if no cookie found,
 	 * if any.
 	 */
+	@Nullable
 	protected Locale getDefaultLocale() {
 		return this.defaultLocale;
 	}
@@ -148,6 +150,7 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 	 * if any.
 	 * @since 4.0
 	 */
+	@Nullable
 	protected TimeZone getDefaultTimeZone() {
 		return this.defaultTimeZone;
 	}
@@ -189,9 +192,24 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 					localePart = value.substring(0, spaceIndex);
 					timeZonePart = value.substring(spaceIndex + 1);
 				}
-				locale = (!"-".equals(localePart) ? parseLocaleValue(localePart) : null);
-				if (timeZonePart != null) {
-					timeZone = StringUtils.parseTimeZoneString(timeZonePart);
+				try {
+					locale = (!"-".equals(localePart) ? parseLocaleValue(localePart) : null);
+					if (timeZonePart != null) {
+						timeZone = StringUtils.parseTimeZoneString(timeZonePart);
+					}
+				}
+				catch (IllegalArgumentException ex) {
+					if (request.getAttribute(WebUtils.ERROR_EXCEPTION_ATTRIBUTE) != null) {
+						// Error dispatch: ignore locale/timezone parse exceptions
+						if (logger.isDebugEnabled()) {
+							logger.debug("Ignoring invalid locale cookie '" + getCookieName() +
+									"' with value [" + value + "] due to error dispatch: " + ex.getMessage());
+						}
+					}
+					else {
+						throw new IllegalStateException("Invalid locale cookie '" + getCookieName() +
+								"' with value [" + value + "]: " + ex.getMessage());
+					}
 				}
 				if (logger.isDebugEnabled()) {
 					logger.debug("Parsed cookie value [" + cookie.getValue() + "] into locale '" + locale +
@@ -206,12 +224,12 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 	}
 
 	@Override
-	public void setLocale(HttpServletRequest request, HttpServletResponse response, Locale locale) {
+	public void setLocale(HttpServletRequest request, HttpServletResponse response, @Nullable Locale locale) {
 		setLocaleContext(request, response, (locale != null ? new SimpleLocaleContext(locale) : null));
 	}
 
 	@Override
-	public void setLocaleContext(HttpServletRequest request, HttpServletResponse response, LocaleContext localeContext) {
+	public void setLocaleContext(HttpServletRequest request, HttpServletResponse response, @Nullable LocaleContext localeContext) {
 		Locale locale = null;
 		TimeZone timeZone = null;
 		if (localeContext != null) {
@@ -241,6 +259,7 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 	 * @return the corresponding {@code Locale} instance
 	 * @since 4.3
 	 */
+	@Nullable
 	protected Locale parseLocaleValue(String locale) {
 		return (isLanguageTagCompliant() ? Locale.forLanguageTag(locale) : StringUtils.parseLocaleString(locale));
 	}
@@ -268,6 +287,7 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 	 * @see #setDefaultLocale
 	 * @see javax.servlet.http.HttpServletRequest#getLocale()
 	 */
+	@Nullable
 	protected Locale determineDefaultLocale(HttpServletRequest request) {
 		Locale defaultLocale = getDefaultLocale();
 		if (defaultLocale == null) {
@@ -285,6 +305,7 @@ public class CookieLocaleResolver extends CookieGenerator implements LocaleConte
 	 * @return the default time zone (or {@code null} if none defined)
 	 * @see #setDefaultTimeZone
 	 */
+	@Nullable
 	protected TimeZone determineDefaultTimeZone(HttpServletRequest request) {
 		return getDefaultTimeZone();
 	}

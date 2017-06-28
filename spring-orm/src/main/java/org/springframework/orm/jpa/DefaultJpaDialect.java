@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2014 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import javax.persistence.PersistenceException;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.datasource.ConnectionHandle;
+import org.springframework.lang.Nullable;
 import org.springframework.transaction.InvalidIsolationLevelException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
@@ -34,7 +35,7 @@ import org.springframework.transaction.TransactionException;
  * <p>Simply begins a standard JPA transaction in {@link #beginTransaction} and
  * performs standard exception translation through {@link EntityManagerFactoryUtils}.
  *
- * <p><b>NOTE: Spring's JPA support requires JPA 2.0 or higher, as of Spring 4.0.</b>
+ * <p><b>NOTE: Spring's JPA support requires JPA 2.1 or higher, as of Spring 5.0.</b>
  *
  * @author Juergen Hoeller
  * @since 2.0
@@ -81,7 +82,7 @@ public class DefaultJpaDialect implements JpaDialect, Serializable {
 	 * @see #beginTransaction
 	 */
 	@Override
-	public void cleanupTransaction(Object transactionData) {
+	public void cleanupTransaction(@Nullable Object transactionData) {
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package org.springframework.web.servlet.view.script;
 
 import java.nio.charset.Charset;
+
+import javax.script.Bindings;
 import javax.script.ScriptEngine;
 
 /**
@@ -24,7 +26,6 @@ import javax.script.ScriptEngine;
  * a {@code ScriptEngine} for use in a web application.
  *
  * <pre class="code">
- *
  * // Add the following to an &#64;Configuration class
  * &#64;Bean
  * public ScriptTemplateConfigurer mustacheConfigurer() {
@@ -67,8 +68,22 @@ public class ScriptTemplateConfigurer implements ScriptTemplateConfig {
 
 
 	/**
+	 * Default constructor.
+	 */
+	public ScriptTemplateConfigurer() {
+	}
+
+	/**
+	 * Create a new ScriptTemplateConfigurer using the given engine name.
+	 */
+	public ScriptTemplateConfigurer(String engineName) {
+		this.engineName = engineName;
+	}
+
+
+	/**
 	 * Set the {@link ScriptEngine} to use by the view.
-	 * The script engine must implement {@code Invocable}.
+	 * If {@code renderFunction} is specified, the script engine must implement {@code Invocable}.
 	 * You must define {@code engine} or {@code engineName}, not both.
 	 * <p>When the {@code sharedEngine} flag is set to {@code false}, you should not specify
 	 * the script engine with this setter, but with the {@link #setEngineName(String)}
@@ -86,7 +101,7 @@ public class ScriptTemplateConfigurer implements ScriptTemplateConfig {
 
 	/**
 	 * Set the engine name that will be used to instantiate the {@link ScriptEngine}.
-	 * The script engine must implement {@code Invocable}.
+	 * If {@code renderFunction} is specified, the script engine must implement {@code Invocable}.
 	 * You must define {@code engine} or {@code engineName}, not both.
 	 * @see #setEngine(ScriptEngine)
 	 */
@@ -156,14 +171,15 @@ public class ScriptTemplateConfigurer implements ScriptTemplateConfig {
 	}
 
 	/**
-	 * Set the render function name (mandatory).
-	 *
+	 * Set the render function name (optional). If not specified, the script templates
+	 * will be evaluated with {@link ScriptEngine#eval(String, Bindings)}.
 	 * <p>This function will be called with the following parameters:
 	 * <ol>
 	 * <li>{@code String template}: the template content</li>
 	 * <li>{@code Map model}: the view model</li>
-	 * <li>{@code String url}: the template url (since 4.2.2)</li>
+	 * <li>{@code RenderingContext context}: the rendering context (since 5.0)</li>
 	 * </ol>
+	 * @see RenderingContext
 	 */
 	public void setRenderFunction(String renderFunction) {
 		this.renderFunction = renderFunction;

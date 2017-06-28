@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@ package org.springframework.web.servlet.mvc.method.annotation;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.context.EmbeddedValueResolverAware;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
@@ -160,6 +160,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	/**
 	 * Return the file extensions to use for suffix pattern matching.
 	 */
+	@Nullable
 	public List<String> getFileExtensions() {
 		return this.config.getFileExtensions();
 	}
@@ -167,7 +168,8 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 	/**
 	 * {@inheritDoc}
-	 * Expects a handler to have a type-level @{@link Controller} annotation.
+	 * <p>Expects a handler to have either a type-level @{@link Controller}
+	 * annotation or a type-level @{@link RequestMapping} annotation.
 	 */
 	@Override
 	protected boolean isHandler(Class<?> beanType) {
@@ -204,7 +206,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 */
 	private RequestMappingInfo createRequestMappingInfo(AnnotatedElement element) {
 		RequestMapping requestMapping = AnnotatedElementUtils.findMergedAnnotation(element, RequestMapping.class);
-		RequestCondition<?> condition = (element instanceof Class<?> ?
+		RequestCondition<?> condition = (element instanceof Class ?
 				getCustomTypeCondition((Class<?>) element) : getCustomMethodCondition((Method) element));
 		return (requestMapping != null ? createRequestMappingInfo(requestMapping, condition) : null);
 	}
@@ -220,6 +222,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * @param handlerType the handler type for which to create the condition
 	 * @return the condition, or {@code null}
 	 */
+	@Nullable
 	protected RequestCondition<?> getCustomTypeCondition(Class<?> handlerType) {
 		return null;
 	}
@@ -235,6 +238,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * @param method the handler method for which to create the condition
 	 * @return the condition, or {@code null}
 	 */
+	@Nullable
 	protected RequestCondition<?> getCustomMethodCondition(Method method) {
 		return null;
 	}
@@ -246,19 +250,20 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * result of merging annotation attributes within an annotation hierarchy.
 	 */
 	protected RequestMappingInfo createRequestMappingInfo(
-			RequestMapping requestMapping, RequestCondition<?> customCondition) {
+			RequestMapping requestMapping, @Nullable RequestCondition<?> customCondition) {
 
-		return RequestMappingInfo
+		RequestMappingInfo.Builder builder = RequestMappingInfo
 				.paths(resolveEmbeddedValuesInPatterns(requestMapping.path()))
 				.methods(requestMapping.method())
 				.params(requestMapping.params())
 				.headers(requestMapping.headers())
 				.consumes(requestMapping.consumes())
 				.produces(requestMapping.produces())
-				.mappingName(requestMapping.name())
-				.customCondition(customCondition)
-				.options(this.config)
-				.build();
+				.mappingName(requestMapping.name());
+		if (customCondition != null) {
+			builder.customCondition(customCondition);
+		}
+		return builder.options(this.config).build();
 	}
 
 	/**
@@ -293,7 +298,8 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	@Override
 	protected CorsConfiguration initCorsConfiguration(Object handler, Method method, RequestMappingInfo mappingInfo) {
 		HandlerMethod handlerMethod = createHandlerMethod(handler, method);
-		CrossOrigin typeAnnotation = AnnotatedElementUtils.findMergedAnnotation(handlerMethod.getBeanType(), CrossOrigin.class);
+		Class<?> beanType = handlerMethod.getBeanType();
+		CrossOrigin typeAnnotation = AnnotatedElementUtils.findMergedAnnotation(beanType, CrossOrigin.class);
 		CrossOrigin methodAnnotation = AnnotatedElementUtils.findMergedAnnotation(method, CrossOrigin.class);
 
 		if (typeAnnotation == null && methodAnnotation == null) {
@@ -304,27 +310,15 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		updateCorsConfig(config, typeAnnotation);
 		updateCorsConfig(config, methodAnnotation);
 
-		if (CollectionUtils.isEmpty(config.getAllowedOrigins())) {
-			config.setAllowedOrigins(Arrays.asList(CrossOrigin.DEFAULT_ORIGINS));
-		}
 		if (CollectionUtils.isEmpty(config.getAllowedMethods())) {
 			for (RequestMethod allowedMethod : mappingInfo.getMethodsCondition().getMethods()) {
 				config.addAllowedMethod(allowedMethod.name());
 			}
 		}
-		if (CollectionUtils.isEmpty(config.getAllowedHeaders())) {
-			config.setAllowedHeaders(Arrays.asList(CrossOrigin.DEFAULT_ALLOWED_HEADERS));
-		}
-		if (config.getAllowCredentials() == null) {
-			config.setAllowCredentials(CrossOrigin.DEFAULT_ALLOW_CREDENTIALS);
-		}
-		if (config.getMaxAge() == null) {
-			config.setMaxAge(CrossOrigin.DEFAULT_MAX_AGE);
-		}
-		return config;
+		return config.applyPermitDefaultValues();
 	}
 
-	private void updateCorsConfig(CorsConfiguration config, CrossOrigin annotation) {
+	private void updateCorsConfig(CorsConfiguration config, @Nullable CrossOrigin annotation) {
 		if (annotation == null) {
 			return;
 		}
@@ -359,7 +353,13 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	}
 
 	private String resolveCorsAnnotationValue(String value) {
-		return (this.embeddedValueResolver != null ? this.embeddedValueResolver.resolveStringValue(value) : value);
+		if (this.embeddedValueResolver != null) {
+			String resolved = this.embeddedValueResolver.resolveStringValue(value);
+			return (resolved != null ? resolved : "");
+		}
+		else {
+			return value;
+		}
 	}
 
 }

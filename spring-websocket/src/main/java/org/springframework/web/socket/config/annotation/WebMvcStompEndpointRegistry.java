@@ -78,7 +78,6 @@ public class WebMvcStompEndpointRegistry implements StompEndpointRegistry {
 		}
 
 		this.stompHandler = new StompSubProtocolHandler();
-
 		if (transportRegistration.getMessageSizeLimit() != null) {
 			this.stompHandler.setMessageSizeLimit(transportRegistration.getMessageSizeLimit());
 		}
@@ -142,10 +141,8 @@ public class WebMvcStompEndpointRegistry implements StompEndpointRegistry {
 		this.stompHandler.setApplicationEventPublisher(applicationContext);
 	}
 
-
 	/**
-	 * Return a handler mapping with the mapped ViewControllers; or {@code null}
-	 * in case of no registrations.
+	 * Return a handler mapping with the mapped ViewControllers.
 	 */
 	public AbstractHandlerMapping getHandlerMapping() {
 		Map<String, Object> urlMap = new LinkedHashMap<>();

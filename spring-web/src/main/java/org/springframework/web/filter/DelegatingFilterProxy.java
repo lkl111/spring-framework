@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.web.filter;
 
 import java.io.IOException;
+
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -24,6 +25,7 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -156,7 +158,7 @@ public class DelegatingFilterProxy extends GenericFilterBean {
 	 * @see #findWebApplicationContext()
 	 * @see #setEnvironment(org.springframework.core.env.Environment)
 	 */
-	public DelegatingFilterProxy(String targetBeanName, WebApplicationContext wac) {
+	public DelegatingFilterProxy(String targetBeanName, @Nullable WebApplicationContext wac) {
 		Assert.hasText(targetBeanName, "target Filter bean name must not be null or empty");
 		this.setTargetBeanName(targetBeanName);
 		this.webApplicationContext = wac;
@@ -177,6 +179,7 @@ public class DelegatingFilterProxy extends GenericFilterBean {
 	 * Return the name of the ServletContext attribute which should be used to retrieve the
 	 * {@link WebApplicationContext} from which to load the delegate {@link Filter} bean.
 	 */
+	@Nullable
 	public String getContextAttribute() {
 		return this.contextAttribute;
 	}
@@ -287,6 +290,7 @@ public class DelegatingFilterProxy extends GenericFilterBean {
 	 * @see WebApplicationContextUtils#getWebApplicationContext(javax.servlet.ServletContext)
 	 * @see WebApplicationContext#ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE
 	 */
+	@Nullable
 	protected WebApplicationContext findWebApplicationContext() {
 		if (this.webApplicationContext != null) {
 			// The user has injected a context at construction time -> use it...

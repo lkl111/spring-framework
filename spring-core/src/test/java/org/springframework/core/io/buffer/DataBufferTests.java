@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import org.junit.Test;
@@ -210,13 +211,22 @@ public class DataBufferTests extends AbstractDataBufferAllocatingTestCase {
 		DataBuffer buffer = createDataBuffer(3);
 		buffer.write(new byte[]{'a', 'b', 'c'});
 
-		int result = buffer.lastIndexOf(b -> b == 'b', 3);
+		int result = buffer.lastIndexOf(b -> b == 'b', 2);
 		assertEquals(1, result);
+
+		result = buffer.lastIndexOf(b -> b == 'c', 2);
+		assertEquals(2, result);
 
 		result = buffer.lastIndexOf(b -> b == 'b', Integer.MAX_VALUE);
 		assertEquals(1, result);
 
+		result = buffer.lastIndexOf(b -> b == 'c', Integer.MAX_VALUE);
+		assertEquals(2, result);
+
 		result = buffer.lastIndexOf(b -> b == 'b', Integer.MIN_VALUE);
+		assertEquals(-1, result);
+
+		result = buffer.lastIndexOf(b -> b == 'c', Integer.MIN_VALUE);
 		assertEquals(-1, result);
 
 		result = buffer.lastIndexOf(b -> b == 'z', 0);
@@ -254,6 +264,22 @@ public class DataBufferTests extends AbstractDataBufferAllocatingTestCase {
 
 
 		release(buffer);
+	}
+
+
+	@Test
+	public void growDataBuffer() {
+		DataBuffer buffer = stringBuffer("Hello World!");
+
+		byte[] bytes = new byte[5];
+		buffer.read(bytes);
+		assertArrayEquals("Hello".getBytes(StandardCharsets.UTF_8), bytes);
+
+		buffer.write("!!".getBytes(StandardCharsets.UTF_8));
+
+		bytes = new byte[9];
+		buffer.read(bytes);
+		assertArrayEquals(" World!!!".getBytes(StandardCharsets.UTF_8), bytes);
 	}
 
 

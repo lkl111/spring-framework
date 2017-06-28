@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.web.bind.support;
 
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.context.request.NativeWebRequest;
 
@@ -36,7 +37,7 @@ public class DefaultDataBinderFactory implements WebDataBinderFactory {
 	 * @param initializer for global data binder initialization
 	 * (or {@code null} if none)
 	 */
-	public DefaultDataBinderFactory(WebBindingInitializer initializer) {
+	public DefaultDataBinderFactory(@Nullable WebBindingInitializer initializer) {
 		this.initializer = initializer;
 	}
 
@@ -47,8 +48,9 @@ public class DefaultDataBinderFactory implements WebDataBinderFactory {
 	 * @throws Exception in case of invalid state or arguments
 	 */
 	@Override
-	public final WebDataBinder createBinder(NativeWebRequest webRequest, Object target, String objectName)
-			throws Exception {
+	@SuppressWarnings("deprecation")
+	public final WebDataBinder createBinder(NativeWebRequest webRequest, @Nullable Object target,
+			@Nullable String objectName) throws Exception {
 
 		WebDataBinder dataBinder = createBinderInstance(target, objectName, webRequest);
 		if (this.initializer != null) {
@@ -66,21 +68,23 @@ public class DefaultDataBinderFactory implements WebDataBinderFactory {
 	 * @param webRequest the current request
 	 * @throws Exception in case of invalid state or arguments
 	 */
-	protected WebDataBinder createBinderInstance(Object target, String objectName, NativeWebRequest webRequest)
-			throws Exception {
+	protected WebDataBinder createBinderInstance(
+			@Nullable Object target, @Nullable String objectName, NativeWebRequest webRequest) throws Exception {
 
 		return new WebRequestDataBinder(target, objectName);
 	}
 
 	/**
 	 * Extension point to further initialize the created data binder instance
-	 * (e.g. with {@code @InitBinder} methods) after "global" initializaton
+	 * (e.g. with {@code @InitBinder} methods) after "global" initialization
 	 * via {@link WebBindingInitializer}.
 	 * @param dataBinder the data binder instance to customize
 	 * @param webRequest the current request
 	 * @throws Exception if initialization fails
 	 */
-	protected void initBinder(WebDataBinder dataBinder, NativeWebRequest webRequest) throws Exception {
+	protected void initBinder(WebDataBinder dataBinder, NativeWebRequest webRequest)
+			throws Exception {
+
 	}
 
 }

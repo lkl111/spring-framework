@@ -17,6 +17,7 @@ package org.springframework.web.server.session;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,7 +42,7 @@ public class DefaultWebSessionManager implements WebSessionManager {
 
 	private WebSessionStore sessionStore = new InMemoryWebSessionStore();
 
-	private Clock clock = Clock.systemDefaultZone();
+	private Clock clock = Clock.system(ZoneId.of("GMT"));
 
 
 	/**
@@ -82,7 +83,7 @@ public class DefaultWebSessionManager implements WebSessionManager {
 	 * Configure the {@link Clock} for access to current time. During tests you
 	 * may use {code Clock.offset(clock, Duration.ofMinutes(-31))} to set the
 	 * clock back for example to test changes after sessions expire.
-	 * <p>By default {@link Clock#systemDefaultZone()} is used.
+	 * <p>By default {@code Clock.system(ZoneId.of("GMT"))} is used.
 	 * @param clock the clock to use
 	 */
 	public void setClock(Clock clock) {
@@ -104,8 +105,8 @@ public class DefaultWebSessionManager implements WebSessionManager {
 				Flux.fromIterable(getSessionIdResolver().resolveSessionIds(exchange))
 						.concatMap(this.sessionStore::retrieveSession)
 						.next()
-						.then(session -> validateSession(exchange, session))
-						.otherwiseIfEmpty(createSession(exchange))
+						.flatMap(session -> validateSession(exchange, session))
+						.switchIfEmpty(createSession(exchange))
 						.map(session -> extendSession(exchange, session)));
 	}
 
@@ -137,10 +138,13 @@ public class DefaultWebSessionManager implements WebSessionManager {
 
 	protected Mono<Void> saveSession(ServerWebExchange exchange, WebSession session) {
 
-		Assert.isTrue(!session.isExpired(), "Sessions are checked for expiration and have their " +
-				"access time updated when first accessed during request processing. " +
-				"However this session is expired meaning that maxIdleTime elapsed " +
-				"since then and before the call to session.save().");
+		if (session.isExpired()) {
+			return Mono.error(new IllegalStateException(
+					"Sessions are checked for expiration and have their " +
+					"access time updated when first accessed during request processing. " +
+					"However this session is expired meaning that maxIdleTime elapsed " +
+					"since then and before the call to session.save()."));
+		}
 
 		if (!session.isStarted()) {
 			return Mono.empty();

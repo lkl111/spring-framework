@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,12 +43,12 @@ public class StaticMessageSource extends AbstractMessageSource {
 
 	@Override
 	protected String resolveCodeWithoutArguments(String code, Locale locale) {
-		return this.messages.get(code + "_" + locale.toString());
+		return this.messages.get(code + '_' + locale.toString());
 	}
 
 	@Override
 	protected MessageFormat resolveCode(String code, Locale locale) {
-		String key = code + "_" + locale.toString();
+		String key = code + '_' + locale.toString();
 		String msg = this.messages.get(key);
 		if (msg == null) {
 			return null;
@@ -73,7 +73,7 @@ public class StaticMessageSource extends AbstractMessageSource {
 		Assert.notNull(code, "Code must not be null");
 		Assert.notNull(locale, "Locale must not be null");
 		Assert.notNull(msg, "Message must not be null");
-		this.messages.put(code + "_" + locale.toString(), msg);
+		this.messages.put(code + '_' + locale.toString(), msg);
 		if (logger.isDebugEnabled()) {
 			logger.debug("Added message [" + msg + "] for code [" + code + "] and Locale [" + locale + "]");
 		}
@@ -87,9 +87,7 @@ public class StaticMessageSource extends AbstractMessageSource {
 	 */
 	public void addMessages(Map<String, String> messages, Locale locale) {
 		Assert.notNull(messages, "Messages Map must not be null");
-		for (Map.Entry<String, String> entry : messages.entrySet()) {
-			addMessage(entry.getKey(), locale, entry.getValue());
-		}
+		messages.forEach((code, msg) -> addMessage(code, locale, msg));
 	}
 
 

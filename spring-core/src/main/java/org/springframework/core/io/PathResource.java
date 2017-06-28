@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 import org.springframework.util.Assert;
 
@@ -192,6 +195,24 @@ public class PathResource extends AbstractResource implements WritableResource {
 			// Do exception translation for cases where conversion is not possible.
 			throw new FileNotFoundException(this.path + " cannot be resolved to " + "absolute file path");
 		}
+	}
+
+	/**
+	 * This implementation opens a Channel for the underlying file.
+	 * @see Files#newByteChannel(Path, OpenOption...)
+	 */
+	@Override
+	public ReadableByteChannel readableChannel() throws IOException {
+		return Files.newByteChannel(this.path, StandardOpenOption.READ);
+	}
+
+	/**
+	 * This implementation opens a Channel for the underlying file.
+	 * @see Files#newByteChannel(Path, OpenOption...)
+	 */
+	@Override
+	public WritableByteChannel writableChannel() throws IOException {
+		return Files.newByteChannel(this.path, StandardOpenOption.WRITE);
 	}
 
 	/**

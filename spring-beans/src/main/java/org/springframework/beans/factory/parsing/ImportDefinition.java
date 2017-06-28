@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.beans.factory.parsing;
 
 import org.springframework.beans.BeanMetadataElement;
 import org.springframework.core.io.Resource;
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
@@ -49,7 +50,7 @@ public class ImportDefinition implements BeanMetadataElement {
 	 * @param importedResource the location of the imported resource
 	 * @param source the source object (may be {@code null})
 	 */
-	public ImportDefinition(String importedResource, Object source) {
+	public ImportDefinition(String importedResource, @Nullable Object source) {
 		this(importedResource, null, source);
 	}
 
@@ -58,7 +59,7 @@ public class ImportDefinition implements BeanMetadataElement {
 	 * @param importedResource the location of the imported resource
 	 * @param source the source object (may be {@code null})
 	 */
-	public ImportDefinition(String importedResource, Resource[] actualResources, Object source) {
+	public ImportDefinition(String importedResource, @Nullable Resource[] actualResources, @Nullable Object source) {
 		Assert.notNull(importedResource, "Imported resource must not be null");
 		this.importedResource = importedResource;
 		this.actualResources = actualResources;

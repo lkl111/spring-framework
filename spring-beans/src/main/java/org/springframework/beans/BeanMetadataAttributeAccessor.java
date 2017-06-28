@@ -17,6 +17,7 @@
 package org.springframework.beans;
 
 import org.springframework.core.AttributeAccessorSupport;
+import org.springframework.lang.Nullable;
 
 /**
  * Extension of {@link org.springframework.core.AttributeAccessorSupport},
@@ -36,7 +37,7 @@ public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport impl
 	 * Set the configuration source {@code Object} for this metadata element.
 	 * <p>The exact type of the object will depend on the configuration mechanism used.
 	 */
-	public void setSource(Object source) {
+	public void setSource(@Nullable Object source) {
 		this.source = source;
 	}
 
@@ -60,12 +61,13 @@ public class BeanMetadataAttributeAccessor extends AttributeAccessorSupport impl
 	 * @return the corresponding BeanMetadataAttribute object,
 	 * or {@code null} if no such attribute defined
 	 */
+	@Nullable
 	public BeanMetadataAttribute getMetadataAttribute(String name) {
 		return (BeanMetadataAttribute) super.getAttribute(name);
 	}
 
 	@Override
-	public void setAttribute(String name, Object value) {
+	public void setAttribute(String name, @Nullable Object value) {
 		super.setAttribute(name, new BeanMetadataAttribute(name, value));
 	}
 

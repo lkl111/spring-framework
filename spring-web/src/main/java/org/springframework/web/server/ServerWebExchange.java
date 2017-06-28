@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.web.server;
 
+import java.security.Principal;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import reactor.core.publisher.Mono;
 
+import org.springframework.context.i18n.LocaleContext;
+import org.springframework.http.codec.multipart.Part;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.lang.Nullable;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.server.i18n.LocaleContextResolver;
 
 /**
  * Contract for an HTTP request-response interaction. Provides access to the HTTP
@@ -65,5 +74,137 @@ public interface ServerWebExchange {
 	 * for more details.
 	 */
 	Mono<WebSession> getSession();
+
+	/**
+	 * Return the authenticated user for the request, if any.
+	 */
+	<T extends Principal> Mono<T> getPrincipal();
+
+	/**
+	 * Return the form data from the body of the request if the Content-Type is
+	 * {@code "application/x-www-form-urlencoded"} or an empty map otherwise.
+	 *
+	 * <p><strong>Note:</strong> calling this method causes the request body to
+	 * be read and parsed in full and the resulting {@code MultiValueMap} is
+	 * cached so that this method is safe to call more than once.
+	 */
+	Mono<MultiValueMap<String, String>> getFormData();
+
+	/**
+	 * Return the parts of a multipart request if the Content-Type is
+	 * {@code "multipart/form-data"} or an empty map otherwise.
+	 *
+	 * <p><strong>Note:</strong> calling this method causes the request body to
+	 * be read and parsed in full and the resulting {@code MultiValueMap} is
+	 * cached so that this method is safe to call more than once.
+	 */
+	Mono<MultiValueMap<String, Part>> getMultipartData();
+
+	/**
+	 * Return the {@link LocaleContext} using the configured {@link LocaleContextResolver}.
+	 */
+	LocaleContext getLocaleContext();
+
+	/**
+	 * Returns {@code true} if the one of the {@code checkNotModified} methods
+	 * in this contract were used and they returned true.
+	 */
+	boolean isNotModified();
+
+	/**
+	 * An overloaded variant of {@link #checkNotModified(String, Instant)} with
+	 * a last-modified timestamp only.
+	 * @param lastModified the last-modified time
+	 * @return whether the request qualifies as not modified
+	 */
+	boolean checkNotModified(Instant lastModified);
+
+	/**
+	 * An overloaded variant of {@link #checkNotModified(String, Instant)} with
+	 * an {@code ETag} (entity tag) value only.
+	 * @param etag the entity tag for the underlying resource.
+	 * @return true if the request does not require further processing.
+	 */
+	boolean checkNotModified(String etag);
+
+	/**
+	 * Check whether the requested resource has been modified given the supplied
+	 * {@code ETag} (entity tag) and last-modified timestamp as determined by
+	 * the application. Also transparently prepares the response, setting HTTP
+	 * status, and adding "ETag" and "Last-Modified" headers when applicable.
+	 * This method works with conditional GET/HEAD requests as well as with
+	 * conditional POST/PUT/DELETE requests.
+	 * <p><strong>Note:</strong> The HTTP specification recommends setting both
+	 * ETag and Last-Modified values, but you can also use
+	 * {@code #checkNotModified(String)} or
+	 * {@link #checkNotModified(Instant)}.
+	 * @param etag the entity tag that the application determined for the
+	 * underlying resource. This parameter will be padded with quotes (")
+	 * if necessary.
+	 * @param lastModified the last-modified timestamp that the application
+	 * determined for the underlying resource
+	 * @return true if the request does not require further processing.
+	 */
+	boolean checkNotModified(@Nullable String etag, Instant lastModified);
+
+
+	/**
+	 * Return a builder to mutate properties of this exchange by wrapping it
+	 * with {@link ServerWebExchangeDecorator} and returning either mutated
+	 * values or delegating back to this instance.
+	 */
+	default Builder mutate() {
+		return new DefaultServerWebExchangeBuilder(this);
+	}
+
+
+	/**
+	 * Builder for mutating an existing {@link ServerWebExchange}.
+	 * Removes the need
+	 */
+	interface Builder {
+
+		/**
+		 * Configure a consumer to modify the current request using a builder.
+		 * <p>Effectively this:
+		 * <pre>
+		 * exchange.mutate().request(builder-> builder.method(HttpMethod.PUT));
+		 *
+		 * // vs...
+		 *
+		 * ServerHttpRequest request = exchange.getRequest().mutate()
+		 *     .method(HttpMethod.PUT)
+		 *     .build();
+		 *
+		 * exchange.mutate().request(request);
+		 * </pre>
+		 * @see ServerHttpRequest#mutate()
+		 */
+		Builder request(Consumer<ServerHttpRequest.Builder> requestBuilderConsumer);
+
+		/**
+		 * Set the request to use especially when there is a need to override
+		 * {@link ServerHttpRequest} methods. To simply mutate request properties
+		 * see {@link #request(Consumer)} instead.
+		 * @see org.springframework.http.server.reactive.ServerHttpRequestDecorator
+		 */
+		Builder request(ServerHttpRequest request);
+
+		/**
+		 * Set the response to use.
+		 * @see org.springframework.http.server.reactive.ServerHttpResponseDecorator
+		 */
+		Builder response(ServerHttpResponse response);
+
+		/**
+		 * Set the {@code Mono<Principal>} to return for this exchange.
+		 */
+		Builder principal(Mono<Principal> principalMono);
+
+		/**
+		 * Build a {@link ServerWebExchange} decorator with the mutated properties.
+		 */
+		ServerWebExchange build();
+	}
 
 }

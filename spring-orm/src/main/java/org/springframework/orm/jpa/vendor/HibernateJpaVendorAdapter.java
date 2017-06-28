@@ -18,12 +18,12 @@ package org.springframework.orm.jpa.vendor;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.spi.PersistenceProvider;
 
 import org.hibernate.cfg.AvailableSettings;
-import org.hibernate.cfg.Environment;
 import org.hibernate.dialect.DB2Dialect;
 import org.hibernate.dialect.DerbyTenSevenDialect;
 import org.hibernate.dialect.H2Dialect;
@@ -34,6 +34,8 @@ import org.hibernate.dialect.Oracle12cDialect;
 import org.hibernate.dialect.PostgreSQL95Dialect;
 import org.hibernate.dialect.SQLServer2012Dialect;
 import org.hibernate.dialect.SybaseDialect;
+
+import org.springframework.lang.Nullable;
 
 /**
  * {@link org.springframework.orm.jpa.JpaVendorAdapter} implementation for Hibernate
@@ -79,11 +81,16 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 	 * JDBC Connection.
 	 * <p>See {@link HibernateJpaDialect#setPrepareConnection(boolean)} for details.
 	 * This is just a convenience flag passed through to {@code HibernateJpaDialect}.
-	 * <p>On Hibernate 5.2, this flag remains {@code true} by default like against
+	 * <p>On Hibernate 5.1/5.2, this flag remains {@code true} by default like against
 	 * previous Hibernate versions. The vendor adapter manually enforces Hibernate's
 	 * new connection handling mode {@code DELAYED_ACQUISITION_AND_HOLD} in that case
 	 * unless a user-specified connection handling mode property indicates otherwise;
 	 * switch this flag to {@code false} to avoid that interference.
+	 * <p><b>NOTE: Per the explanation above, you may have to turn this flag off
+	 * when using Hibernate in a JTA environment, e.g. on WebLogic.</b> Alternatively,
+	 * set Hibernate 5.2's "hibernate.connection.handling_mode" property to
+	 * "DELAYED_ACQUISITION_AND_RELEASE_AFTER_TRANSACTION" or even
+	 * "DELAYED_ACQUISITION_AND_RELEASE_AFTER_STATEMENT" in such a scenario.
 	 * @since 4.3.1
 	 * @see #getJpaPropertyMap()
 	 * @see HibernateJpaDialect#beginTransaction
@@ -108,20 +115,20 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 		Map<String, Object> jpaProperties = new HashMap<>();
 
 		if (getDatabasePlatform() != null) {
-			jpaProperties.put(Environment.DIALECT, getDatabasePlatform());
+			jpaProperties.put(AvailableSettings.DIALECT, getDatabasePlatform());
 		}
 		else if (getDatabase() != null) {
 			Class<?> databaseDialectClass = determineDatabaseDialectClass(getDatabase());
 			if (databaseDialectClass != null) {
-				jpaProperties.put(Environment.DIALECT, databaseDialectClass.getName());
+				jpaProperties.put(AvailableSettings.DIALECT, databaseDialectClass.getName());
 			}
 		}
 
 		if (isGenerateDdl()) {
-			jpaProperties.put(Environment.HBM2DDL_AUTO, "update");
+			jpaProperties.put(AvailableSettings.HBM2DDL_AUTO, "update");
 		}
 		if (isShowSql()) {
-			jpaProperties.put(Environment.SHOW_SQL, "true");
+			jpaProperties.put(AvailableSettings.SHOW_SQL, "true");
 		}
 
 		if (this.jpaDialect.prepareConnection) {
@@ -151,6 +158,7 @@ public class HibernateJpaVendorAdapter extends AbstractJpaVendorAdapter {
 	 * @param database the target database
 	 * @return the Hibernate database dialect class, or {@code null} if none found
 	 */
+	@Nullable
 	protected Class<?> determineDatabaseDialectClass(Database database) {
 		switch (database) {
 			case DB2: return DB2Dialect.class;

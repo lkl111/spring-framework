@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.messaging.simp.config;
 import java.util.Arrays;
 import java.util.Collection;
 
+import org.springframework.lang.Nullable;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.SubscribableChannel;
 import org.springframework.messaging.simp.broker.SimpleBrokerMessageHandler;
@@ -55,8 +56,8 @@ public class MessageBrokerRegistry {
 
 
 	public MessageBrokerRegistry(SubscribableChannel clientInboundChannel, MessageChannel clientOutboundChannel) {
-		Assert.notNull(clientInboundChannel);
-		Assert.notNull(clientOutboundChannel);
+		Assert.notNull(clientInboundChannel, "Inbound channel must not be null");
+		Assert.notNull(clientOutboundChannel, "Outbound channel must not be null");
 		this.clientInboundChannel = clientInboundChannel;
 		this.clientOutboundChannel = clientOutboundChannel;
 	}
@@ -98,11 +99,13 @@ public class MessageBrokerRegistry {
 		return this.brokerChannelRegistration;
 	}
 
+	@Nullable
 	protected String getUserDestinationBroadcast() {
 		return (this.brokerRelayRegistration != null ?
 				this.brokerRelayRegistration.getUserDestinationBroadcast() : null);
 	}
 
+	@Nullable
 	protected String getUserRegistryBroadcast() {
 		return (this.brokerRelayRegistration != null ?
 				this.brokerRelayRegistration.getUserRegistryBroadcast() : null);
@@ -123,6 +126,7 @@ public class MessageBrokerRegistry {
 		return this;
 	}
 
+	@Nullable
 	protected Collection<String> getApplicationDestinationPrefixes() {
 		return (this.applicationDestinationPrefixes != null ?
 				Arrays.asList(this.applicationDestinationPrefixes) : null);
@@ -145,6 +149,7 @@ public class MessageBrokerRegistry {
 		return this;
 	}
 
+	@Nullable
 	protected String getUserDestinationPrefix() {
 		return this.userDestinationPrefix;
 	}
@@ -171,6 +176,7 @@ public class MessageBrokerRegistry {
 		return this;
 	}
 
+	@Nullable
 	protected PathMatcher getPathMatcher() {
 		return this.pathMatcher;
 	}
@@ -188,6 +194,7 @@ public class MessageBrokerRegistry {
 	}
 
 
+	@Nullable
 	protected SimpleBrokerMessageHandler getSimpleBroker(SubscribableChannel brokerChannel) {
 		if (this.simpleBrokerRegistration == null && this.brokerRelayRegistration == null) {
 			enableSimpleBroker();
@@ -201,6 +208,7 @@ public class MessageBrokerRegistry {
 		return null;
 	}
 
+	@Nullable
 	protected StompBrokerRelayMessageHandler getStompBrokerRelay(SubscribableChannel brokerChannel) {
 		if (this.brokerRelayRegistration != null) {
 			return this.brokerRelayRegistration.getMessageHandler(brokerChannel);

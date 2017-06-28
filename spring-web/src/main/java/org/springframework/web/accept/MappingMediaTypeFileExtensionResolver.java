@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.springframework.http.MediaType;
+import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
@@ -54,7 +55,7 @@ public class MappingMediaTypeFileExtensionResolver implements MediaTypeFileExten
 	/**
 	 * Create an instance with the given map of file extensions and media types.
 	 */
-	public MappingMediaTypeFileExtensionResolver(Map<String, MediaType> mediaTypes) {
+	public MappingMediaTypeFileExtensionResolver(@Nullable Map<String, MediaType> mediaTypes) {
 		if (mediaTypes != null) {
 			for (Entry<String, MediaType> entries : mediaTypes.entrySet()) {
 				String extension = entries.getKey().toLowerCase(Locale.ENGLISH);
@@ -66,6 +67,10 @@ public class MappingMediaTypeFileExtensionResolver implements MediaTypeFileExten
 		}
 	}
 
+
+	public Map<String, MediaType> getMediaTypes() {
+		return this.mediaTypes;
+	}
 
 	protected List<MediaType> getAllMediaTypes() {
 		return new ArrayList<>(this.mediaTypes.values());
@@ -86,7 +91,7 @@ public class MappingMediaTypeFileExtensionResolver implements MediaTypeFileExten
 	@Override
 	public List<String> resolveFileExtensions(MediaType mediaType) {
 		List<String> fileExtensions = this.fileExtensions.get(mediaType);
-		return (fileExtensions != null) ? fileExtensions : Collections.<String>emptyList();
+		return (fileExtensions != null) ? fileExtensions : Collections.emptyList();
 	}
 
 	@Override
@@ -98,6 +103,7 @@ public class MappingMediaTypeFileExtensionResolver implements MediaTypeFileExten
 	 * Use this method for a reverse lookup from extension to MediaType.
 	 * @return a MediaType for the key, or {@code null} if none found
 	 */
+	@Nullable
 	protected MediaType lookupMediaType(String extension) {
 		return this.mediaTypes.get(extension.toLowerCase(Locale.ENGLISH));
 	}

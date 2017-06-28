@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import javax.naming.spi.NamingManager;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
@@ -37,7 +38,8 @@ import org.springframework.util.ReflectionUtils;
  * configure JNDI appropriately, so that {@code new InitialContext()}
  * will expose the required objects. Also usable for standalone applications,
  * e.g. for binding a JDBC DataSource to a well-known JNDI location, to be
- * able to use traditional J2EE data access code outside of a J2EE container.
+ * able to use traditional Java EE data access code outside of a Java EE
+ * container.
  *
  * <p>There are various choices for DataSource implementations:
  * <ul>
@@ -94,6 +96,7 @@ public class SimpleNamingContextBuilder implements InitialContextFactoryBuilder 
 	 * @return the current SimpleNamingContextBuilder instance,
 	 * or {@code null} if none
 	 */
+	@Nullable
 	public static SimpleNamingContextBuilder getCurrentContextBuilder() {
 		return activated;
 	}
@@ -191,7 +194,7 @@ public class SimpleNamingContextBuilder implements InitialContextFactoryBuilder 
 	 * @see SimpleNamingContext
 	 */
 	@Override
-	public InitialContextFactory createInitialContextFactory(Hashtable<?,?> environment) {
+	public InitialContextFactory createInitialContextFactory(@Nullable Hashtable<?,?> environment) {
 		if (activated == null && environment != null) {
 			Object icf = environment.get(Context.INITIAL_CONTEXT_FACTORY);
 			if (icf != null) {

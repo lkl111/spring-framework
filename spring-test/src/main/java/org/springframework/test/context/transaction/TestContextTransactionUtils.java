@@ -27,12 +27,14 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.ListableBeanFactory;
+import org.springframework.lang.Nullable;
 import org.springframework.test.context.TestContext;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.TransactionManagementConfigurer;
 import org.springframework.transaction.interceptor.DelegatingTransactionAttribute;
 import org.springframework.transaction.interceptor.TransactionAttribute;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -86,7 +88,8 @@ public abstract class TestContextTransactionUtils {
 	 * @throws BeansException if an error occurs while retrieving an explicitly
 	 * named {@code DataSource}
 	 */
-	public static DataSource retrieveDataSource(TestContext testContext, String name) {
+	@Nullable
+	public static DataSource retrieveDataSource(TestContext testContext, @Nullable String name) {
 		Assert.notNull(testContext, "TestContext must not be null");
 		BeanFactory bf = testContext.getApplicationContext().getAutowireCapableBeanFactory();
 
@@ -158,7 +161,8 @@ public abstract class TestContextTransactionUtils {
 	 * @throws IllegalStateException if more than one TransactionManagementConfigurer
 	 * exists in the ApplicationContext
 	 */
-	public static PlatformTransactionManager retrieveTransactionManager(TestContext testContext, String name) {
+	@Nullable
+	public static PlatformTransactionManager retrieveTransactionManager(TestContext testContext, @Nullable String name) {
 		Assert.notNull(testContext, "TestContext must not be null");
 		BeanFactory bf = testContext.getApplicationContext().getAutowireCapableBeanFactory();
 
@@ -241,10 +245,9 @@ public abstract class TestContextTransactionUtils {
 
 		private final String name;
 
-
 		public TestContextTransactionAttribute(TransactionAttribute targetAttribute, TestContext testContext) {
 			super(targetAttribute);
-			this.name = testContext.getTestClass().getName() + "." + testContext.getTestMethod().getName();
+			this.name = ClassUtils.getQualifiedMethodName(testContext.getTestMethod(), testContext.getTestClass());
 		}
 
 		@Override

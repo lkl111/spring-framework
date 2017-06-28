@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 the original author or authors.
+ * Copyright 2002-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package org.springframework.web.bind.support;
 
 import org.springframework.beans.PropertyEditorRegistrar;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.lang.Nullable;
 import org.springframework.validation.BindingErrorProcessor;
 import org.springframework.validation.MessageCodesResolver;
 import org.springframework.validation.Validator;
 import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.context.request.WebRequest;
 
 /**
  * Convenient {@link WebBindingInitializer} for declarative configuration
@@ -108,6 +108,7 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	/**
 	 * Return the strategy to use for resolving errors into message codes.
 	 */
+	@Nullable
 	public final MessageCodesResolver getMessageCodesResolver() {
 		return this.messageCodesResolver;
 	}
@@ -126,6 +127,7 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	/**
 	 * Return the strategy to use for processing binding errors.
 	 */
+	@Nullable
 	public final BindingErrorProcessor getBindingErrorProcessor() {
 		return this.bindingErrorProcessor;
 	}
@@ -140,6 +142,7 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	/**
 	 * Return the Validator to apply after each binding step, if any.
 	 */
+	@Nullable
 	public final Validator getValidator() {
 		return this.validator;
 	}
@@ -155,6 +158,7 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	/**
 	 * Return the ConversionService which will apply to every DataBinder.
 	 */
+	@Nullable
 	public final ConversionService getConversionService() {
 		return this.conversionService;
 	}
@@ -176,13 +180,14 @@ public class ConfigurableWebBindingInitializer implements WebBindingInitializer 
 	/**
 	 * Return the PropertyEditorRegistrars to be applied to every DataBinder.
 	 */
+	@Nullable
 	public final PropertyEditorRegistrar[] getPropertyEditorRegistrars() {
 		return this.propertyEditorRegistrars;
 	}
 
 
 	@Override
-	public void initBinder(WebDataBinder binder, WebRequest request) {
+	public void initBinder(WebDataBinder binder) {
 		binder.setAutoGrowNestedPaths(this.autoGrowNestedPaths);
 		if (this.directFieldAccess) {
 			binder.initDirectFieldAccess();
